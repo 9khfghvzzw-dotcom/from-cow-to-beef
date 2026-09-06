@@ -8,6 +8,8 @@ A standalone farm-building action RPG for desktop and touch browsers. Grow a pea
 
 [Source repository](https://github.com/9khfghvzzw-dotcom/from-cow-to-beef)
 
+![Gameplay: the pasture, household and breeding robot](docs/gameplay.png)
+
 ## Features
 
 - Layered canvas landscape, animated animals, depth sorting, shadows and lighting.
@@ -45,6 +47,15 @@ npm run build
 
 The development server uses `http://127.0.0.1:5180/`. Production output is in `dist/`; upload its contents as Cloudflare Worker static assets. No backend, API keys or paid services are required by the game.
 
+To update the existing Cloudflare deployment with an authorized account:
+
+```sh
+npm run build
+npx wrangler@4.129.0 deploy
+```
+
+`wrangler.jsonc` identifies this game's standalone Worker. For your own deployment, change its account ID and Worker name. Cloudflare authentication is stored outside the repository.
+
 ## Architecture and validation
 
 - `src/world.js`: browser-independent simulation, economy, NPC decisions, combat, breeding and persistence.
@@ -53,6 +64,10 @@ The development server uses `http://127.0.0.1:5180/`. Production output is in `d
 - `src/dom.js`: incremental updates that preserve live interaction controls.
 - `src/settlement-ui.js`: categorized store and settlement actions.
 - `tests/`: deterministic Node tests covering progression, breeding reservations, NPCs, spells, crops, construction, combat, household and save validation.
+
+Validation: 13 passing simulation tests and a successful production build. Browser checks on the public deployment covered care/XP, the robot visit and pregnancy, rain magic, building a cottage, population/threat changes, companion invitation, shared meals, audio toggle, save restoration and product-specific insufficient-funds feedback. The responsive layout was checked at 390 × 844 with visible touch controls and no horizontal overflow; this is not a claim of physical iPhone testing.
+
+[Mobile screenshot](docs/mobile.png)
 
 Time stops when the tab is hidden, a dialog is open or the game is paused. Saves belong to the current browser and origin; clearing site data removes them. This is a single-player browser game, not a signed native iPhone app. A network connection is needed for initial loading; this release does not claim installable offline support.
 
