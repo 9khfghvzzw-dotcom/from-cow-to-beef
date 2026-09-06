@@ -1,14 +1,15 @@
 import { setupSettlement } from "./settlement-ui.js";
 import "./style.css";
-import { World, SPELLS, xpFor, CAPACITY, CROPS, BUILDINGS } from "./world.js";
+import { World, SPELLS, xpFor, CAPACITY, CROPS, BUILDINGS, WEAPONS } from "./world.js";
 import { Renderer } from "./render.js";
 import { patchMarkup } from './dom.js';
+import {setupInventory,useEquipment,TOOL_NAMES} from './inventory.js';
 const $ = (id) => document.getElementById(id),
   world = new World(),
   canvas = $("world"),
   renderer = new Renderer(canvas),
   keys = new Set(),
-  SAVE = "from-cow-to-beef:v1";
+  SAVE = import.meta.env.DEV && location.pathname==='/.qa/fixture.html' ? 'from-cow-to-beef:qa' : "from-cow-to-beef:v1";
 let paused = false,
   target = null,
   last = performance.now(),
@@ -17,7 +18,7 @@ let paused = false,
   selectionMarkup = "",
   marketId = null,
   buildMode = null;
-const audio = new Audio("/audio/farm-rpg-fusion.mp3");
+const audio = new Audio("/audio/farm-rpg-with-soli.mp3");
 audio.loop = true;
 audio.volume = 0.25;
 let sound = false;
@@ -58,6 +59,7 @@ setupSettlement(world, {
     canvas.style.cursor = "crosshair";
   },
 });
+setupInventory(world,save);
 $("pause").onclick = () => setPause(!paused);
 $("resume").onclick = () => setPause(false);
 $("sound").onclick = async () => {
@@ -95,7 +97,7 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
   keys.add(e.code);
   target = null;
-  if (e.code === "KeyF" && !paused) world.attack();
+  if (e.code === "KeyF" && !paused) useEquipment(world);
   if (!e.repeat && /^Digit[1-4]$/.test(e.code))
     world.cast(Object.keys(SPELLS)[Number(e.code.at(-1)) - 1]);
   if (e.code === "Escape") {
@@ -139,8 +141,7 @@ canvas.onpointerdown = (e) => {
     s = world.state;
   if (buildMode) {
     if (world.build(buildMode, p.x, p.y)) {
-      buildMode = null;
-      canvas.style.cursor = "";
+      if(buildMode!=='wall'){buildMode = null;canvas.style.cursor = '';}
       save();
     }
     return;
@@ -155,7 +156,7 @@ canvas.onpointerdown = (e) => {
     selectionMarkup = "";
     return;
   }
-  const nearest = [...s.cows, ...s.animals, ...s.npcs, ...s.buildings]
+  const nearest = [...s.cows, ...s.animals, ...s.npcs, ...s.buildings, ...s.guards, ...s.technicians]
     .map((a) => ({ a, d: Math.hypot(a.x - p.x, a.y - 20 - p.y) }))
     .sort((a, b) => a.d - b.d)[0];
   if (nearest && nearest.d < 55) {
@@ -189,6 +190,9 @@ $("selection").onclick = (e) => {
   if (a.startsWith("plant:"))
     world.plant(Number(s.selected.split("-")[1]), a.split(":")[1]);
   if (a === "repair") world.repair(s.selected);
+  if (a === 'repair-guardian') world.startRepair(s.selected);
+  if (a === 'maintenance') world.toggleTechnician(s.selected);
+  if(a==='cancel-build'){buildMode=null;canvas.style.cursor='';}
   if (a === "market") {
     marketId = s.selected;
     $("choice").showModal();
@@ -263,13 +267,16 @@ function ui() {
     needed = xpFor(level + 1) - xpFor(level);
   $("xp").textContent = `${progress} / ${needed} XP to next level`;
   $("xp-fill").style.width = `${(progress / needed) * 100}%`;
-  $("coins").textContent = `◈ ${s.coins} coins`;
+  $("coins").textContent = `◈ ${Number(s.coins.toFixed(2))} gold`;
   $("feed").textContent = `♧ ${s.food} feed`;
   $("herd").textContent =
     `${s.cows.length}/${CAPACITY} cows · ${world.population} residents`;
   $("mana").textContent = Math.floor(s.mana);
   $("day").textContent =
-    `Day ${Math.floor(s.time / 240) + 1} · ${s.time % 240 < 120 ? "Golden morning" : "Quiet afternoon"} · Threat ${world.threat} · wave in ${Math.ceil(s.nextWave - s.time)}s`;
+    `Day ${Math.floor(s.time / 240) + 1} · Threat ${world.threat} · ${s.wolves.filter(w=>!w.retreat).length} hostiles · wave in ${Math.ceil(s.nextWave - s.time)}s`;
+  const actionLabel=s.activeTool==='weapon'?`⚔<small>${WEAPONS[s.weapon].name} · F</small>`:'⚒<small>USE TOOL · F</small>';
+  if($('attack').innerHTML!==actionLabel)$('attack').innerHTML=actionLabel;
+  $('attack').title=s.activeTool==='weapon'?`Equipped: ${WEAPONS[s.weapon].name}`:`Equipped: ${TOOL_NAMES[s.activeTool]}`;
   $("toast").textContent = s.notices[0]?.text || "";
   for (const [id, spec] of Object.entries(SPELLS)) {
     const remaining = Math.max(0, Math.ceil((s.cooldowns[id] || 0) - s.time)),
@@ -346,7 +353,12 @@ function ui() {
   const building = s.buildings.find((b) => b.id === s.selected);
   if (building)
     html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home."}</p>`;
+  const guardian=s.guards.find(g=>g.id===s.selected),technician=s.technicians.find(t=>t.id===s.selected);
+  if(guardian)html=`<p class="eyebrow">ELECTRIC GUARDIAN</p><h2>${escape(guardian.name)}</h2><p>${escape(guardian.intent)}</p>${meter('Armor %',guardian.health/240*100)}<p>${Math.ceil(guardian.health)} / 240 armor · range 260</p><button data-action="repair-guardian">${s.repairJob===guardian.id?'Stop repairs':'Repair · 6 gold/min'}</button><small>Requires Insulated screwdriver. Stay nearby. Charges only for active work; stops at full armor or zero gold.</small>`;
+  if(technician)html=`<p class="eyebrow">FIELD TECHNICIAN</p><h2>${escape(technician.name)}</h2><p>${escape(technician.intent)}</p><button data-action="maintenance">${technician.active?'Pause maintenance':'Enable maintenance · 12 gold/min'}</button><p>Repairs 240 armor/min. Travel and idle time are free. Stops when funds run out.</p>`;
+  if(buildMode)html=`<p class="eyebrow">BUILD MODE</p><h2>${BUILDINGS[buildMode].name}</h2><p>Click open ground. Each piece costs ${BUILDINGS[buildMode].price} gold.${buildMode==='wall'?' Keep clicking to build a wall line.':''}</p><button data-action="cancel-build">Finish building</button>`;
   if (html !== selectionMarkup) {
+    // Markup is reconciled below to preserve live action buttons.
     patchMarkup($("selection"), html);
     selectionMarkup = html;
   }
@@ -386,7 +398,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 $("attack").onclick = () => {
-  if (!paused) world.attack();
+  if (!paused) useEquipment(world);
 };
 ui();
 requestAnimationFrame(frame);

@@ -1,3 +1,4 @@
+import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
 export const CAPACITY = 20;
 export const BUILDINGS = {
   house: { name: "Cottage", price: 75, size: 65, population: 3 },
@@ -5,6 +6,11 @@ export const BUILDINGS = {
   wall: { name: "Stone wall", price: 12, size: 28, population: 0 },
 };
 export const WEAPONS = {
+  shortsword: {name:'Short sword',price:0,range:110,power:1.5,cooldown:.65,description:'Your starting blade. Two quick hits repel a wolf.'},
+  spear: { name: 'Steel spear', price: 140, range: 210, power: 2, cooldown: .85, description: 'Long melee reach; keeps attackers at a distance.' },
+  hammer: { name: 'Shockwave hammer', price: 210, range: 135, power: 3, cooldown: 1.6, splash: 100, description: 'Slow heavy strike that hits up to three nearby wolves.' },
+  blaster: { name: 'Arc blaster', price: 300, range: 420, power: 1.5, cooldown: .8, stun: .45, description: 'Fast electric shots briefly stun a distant target.' },
+  cryo: { name: 'Frost launcher', price: 260, range: 360, power: 1, cooldown: 1.4, stun: 1.8, description: 'Lower damage; freezes an attacker for 1.8 seconds.' },
   staff: { name: "Field staff", price: 0, range: 115, power: 1, cooldown: 0.7 },
   bow: { name: "Ranger bow", price: 65, range: 380, power: 1, cooldown: 1 },
   sword: {
@@ -92,13 +98,14 @@ export class World {
       care: 0,
       deliveries: 0,
       nextId: 1,
-      weapon: "staff",
-      weapons: ["staff"],
+      weapon: "shortsword",
+      weapons: ["staff", "shortsword"],
       lastAttack: -10,
       seeds: { clover: 2, carrot: 1, wheat: 1 },
       produce: { clover: 0, carrot: 0, wheat: 0 },
       sales: 0,
       buildings: [],
+      guards: [], technicians: [], tools: ['hoe','watering_can'], activeTool: 'weapon', repairJob: null, repairGoldSpent: 0,
       family: {
         partner: null,
         bond: 0,
@@ -107,7 +114,7 @@ export class World {
         arrival: null,
       },
       wave: 0,
-      nextWave: 90,
+      nextWave: 35,
       player: { x: 760, y: 620 },
       selected: null,
       cooldowns: {},
@@ -183,6 +190,9 @@ export class World {
   id() {
     return `animal-${this.state.nextId++}`;
   }
+  buyEngineering(type) { return buyEngineering(this,type); }
+  startRepair(id) { return startRepair(this,id); }
+  toggleTechnician(id) { return toggleTechnician(this,id); }
   get level() {
     return levelFor(this.state.xp);
   }
@@ -279,7 +289,7 @@ export class World {
   canAfford(price, itemName) {
     const missing = Math.max(0, price - this.state.coins);
     if (!missing) return true;
-    this.notify(`Insufficient funds — you need ${missing} more gold to buy ${itemName}.`);
+    this.notify(`Insufficient funds — you need ${Number(missing.toFixed(2))} more gold to buy ${itemName}.`);
     return false;
   }
   buySeed(type) {
@@ -334,6 +344,7 @@ export class World {
       s.weapons.push(type);
     }
     s.weapon = type;
+    s.activeTool='weapon';s.repairJob=null;
     return this.notify(`${spec.name} equipped.`);
   }
   attack() {
@@ -351,13 +362,15 @@ export class World {
       .filter((w) => !w.retreat && distance(w, s.player) < spec.range)
       .sort((a, b) => distance(a, s.player) - distance(b, s.player))[0];
     if (!enemy) return this.notify("No wolf within weapon range.");
-    enemy.courage = (enemy.courage ?? 3) - spec.power;
-    if (enemy.courage <= 0) {
-      enemy.retreat = 15;
-      this.award(20);
-      s.coins += 6;
-      this.notify("Wolf driven away · +20 XP, +6 coins.");
-    } else this.notify(`${spec.name} hit · keep the herd safe!`);
+    const targets=[enemy,...(spec.splash?s.wolves.filter(w=>w!==enemy&&!w.retreat&&distance(w,enemy)<=spec.splash&&distance(w,s.player)<=spec.range).slice(0,2):[])];
+    for(const victim of targets){
+      victim.courage=(victim.courage??3)-spec.power;
+      if(spec.stun)victim.frozen=Math.max(victim.frozen||0,spec.stun);
+      if(s.weapon==='blaster')s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:victim.x,ty:victim.y-20,until:s.time+.3});
+      if(s.weapon==='cryo')s.effects.push({kind:'frost',x:victim.x,y:victim.y,until:s.time+1});
+      if(victim.courage<=0){victim.retreat=15;this.award(20);s.coins+=6;}
+    }
+    this.notify(targets.some(w=>w.retreat)?`${spec.name} repelled ${targets.filter(w=>w.retreat).length} wolf/wolves · +6 gold and +20 XP each.`:`${spec.name} hit · keep the herd safe!`);
   }
   build(type, x, y) {
     const spec = BUILDINGS[type],
@@ -463,7 +476,7 @@ export class World {
       `Shared meal · bond ${f.bond}/100. ${f.bond === 100 ? "Your companion would like to build a family together." : "A friendship grows with time."}`,
     );
   }
-  startFamily() {
+  startFamily(design='hybrid') {
     const s = this.state,
       f = s.family;
     if (!f.partner || f.bond < 100 || this.level < 3)
@@ -474,6 +487,7 @@ export class World {
       return this.notify("Your family chapter is already underway.");
     if (!this.canAfford(80, 'a family room')) return;
     s.coins -= 80;
+    f.childDesign=f.partner==='robot'&&design==='robot'?'robot':f.partner==='robot'?'hybrid':'human';
     f.arrival = 90;
     return this.notify(
       f.partner === "robot"
@@ -649,23 +663,24 @@ export class World {
     const shepherd = s.npcs.find((n) => n.id === "shepherd");
     const danger = s.wolves.find((w) => !w.retreat);
     shepherd.intent = danger ? "Driving wolves away" : "Patrolling the pasture";
+    shepherd.timer=Math.max(0,(shepherd.timer||0)-dt);
     if (danger) {
-      this.moveTo(shepherd, danger, 80, dt);
-      if (distance(shepherd, danger) < 80) danger.retreat = 8;
+      this.moveTo(shepherd, danger, 60, dt);
+      if (distance(shepherd, danger) < 60 && shepherd.timer<=0) {danger.retreat = 3;shepherd.timer=12;}
     }
     if (s.family.arrival !== null) {
       s.family.arrival -= dt;
       if (s.family.arrival <= 0) {
         s.family.arrival = null;
-        s.family.child = s.family.partner === "robot" ? "hybrid" : "human";
+        s.family.child = s.family.childDesign || (s.family.partner === "robot" ? "hybrid" : "human");
         const home = s.buildings.find((b) => b.type === "house") || {
           x: 750,
           y: 400,
         };
         s.npcs.push({
           id: "child",
-          name: s.family.child === "hybrid" ? "Nova" : "Robin",
-          role: s.family.child === "hybrid" ? "Human–robot child" : "Child",
+          name: s.family.child === 'robot'?'Bolt':s.family.child === "hybrid" ? "Nova" : "Robin",
+          role: s.family.child === 'robot'?'Robot child':s.family.child === "hybrid" ? "Human–robot child" : "Child",
           x: home.x + 30,
           y: home.y + 20,
           intent: "Playing safely at home",
@@ -716,6 +731,7 @@ export class World {
         this.moveTo(n, n.goal, 20, dt);
       }
     }
+    tickEngineering(this,dt);
     for (const w of s.wolves) {
       w.frozen = Math.max(0, w.frozen - dt);
       if (w.frozen) continue;
@@ -723,6 +739,12 @@ export class World {
         w.retreat -= dt;
         this.moveTo(w, { x: 1550, y: 200 }, 110, dt);
       } else {
+        const defender = s.guards.filter(g=>g.health>0 && distance(g,w)<150).sort((a,b)=>distance(a,w)-distance(b,w))[0];
+        if(defender) {
+          this.moveTo(w,defender,45,dt);w.intent='Attacking the guardian';
+          if(distance(w,defender)<45) defender.health=Math.max(0,defender.health-dt*12);
+          continue;
+        }
         const target = [...s.cows].sort(
           (a, b) => distance(a, w) - distance(b, w),
         )[0];
@@ -755,10 +777,10 @@ export class World {
       );
     if (s.time >= s.nextWave) {
       s.wave++;
-      const count = Math.min(8, this.threat);
+      const count = Math.min(10, this.threat+1);
       for (let i = 0; i < count && s.wolves.length < 12; i++)
         s.wolves.push({ x: 1460, y: 440 + i * 55, frozen: 0, retreat: 0 });
-      s.nextWave = s.time + Math.max(40, 90 - this.threat * 5);
+      s.nextWave = s.time + Math.max(25, 60 - this.threat * 4);
       this.notify(`Wave ${s.wave} · ${count} wolves approach your settlement.`);
     }
   }
@@ -831,6 +853,8 @@ export class World {
       d.buildings ||= [];
       d.weapon ||= "staff";
       d.weapons ||= ["staff"];
+      if(!d.weapons.includes('shortsword'))d.weapons.push('shortsword');
+      if(d.weapon==='staff')d.weapon='shortsword';
       d.lastAttack ??= -10;
       d.family ||= {
         partner: null,
@@ -840,8 +864,9 @@ export class World {
         arrival: null,
       };
       d.wave ||= 0;
-      d.nextWave ??= d.time + 90;
+      d.nextWave = Math.min(d.nextWave??d.time+35,d.time+35);
       for (const p of d.crops) if (p.type === undefined) p.type = "clover";
+      if(!migrateEngineering(d))return false;
       this.state = { ...d, effects: [], notices: [] };
       return true;
     } catch {

@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meat Lover — "Yes or No" 6/8 : Three Consecutive Soli</title>
+<style>
+  :root{
+    --bg:#fbfbfd; --panel:#ffffff; --ink:#1b1c1f; --muted:#6a6d76;
+    --line:#e3e5ea; --accent:#b3402f; --ok:#1f6f4a;
+    --flute:#2b7a78; --synth:#6b4ea8; --guitar:#c2703a; --bass:#3b6ea5; --drums:#8b8d96;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:28px 22px 80px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  h2{font-size:15px;margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+  button{font:inherit;padding:8px 14px;border-radius:7px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer}
+  button:hover{border-color:#c9ccd4}
+  button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+  input[type=range]{width:180px}
+  select,input[type=number],input[type=file]{font:inherit;padding:6px 8px;border:1px solid var(--line);
+    border-radius:6px;background:#fff;color:var(--ink);max-width:260px}
+  .val{font-variant-numeric:tabular-nums;font-weight:600}
+  #rollWrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:#fff;max-height:460px}
+  canvas{display:block}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .tag{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600}
+  .t1{background:#eaf3f3;color:#1f5f5d}.t2{background:#f1ecfa;color:#543a8c}.t3{background:#fbeade;color:#8a4a1c}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:8px}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .note{font-size:12px;color:var(--muted)}
+  .status{font-size:12px;margin-top:8px;min-height:18px}
+  .status.ok{color:var(--ok);font-weight:600}
+  .status.bad{color:var(--accent);font-weight:600}
+  textarea{width:100%;height:130px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;
+    border:1px solid var(--line);border-radius:8px;padding:10px;background:#fbfbfd}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  #err{color:var(--accent);font-size:12px;white-space:pre-wrap}
+  .drop{border:1px dashed #c9ccd4;border-radius:8px;padding:12px;text-align:center;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Meat Lover — “Yes or No” (6/8): Three Consecutive Soli</h1>
+<p class="sub">Straight 16th-note quartal lines · alternating <b>YES</b> / <b>NO</b> phrases · flute → synth → tutti ·
+  48 bars (≈1:03 at ♩. = 92). Load your own MIDI piano sketch and the whole block rebuilds around it.</p>
+
+<div class="card">
+  <div class="row">
+    <button id="play" class="primary">▶ Play</button>
+    <button id="stop">■ Stop</button>
+    <span style="width:10px"></span>
+    <span class="tag t1">Soli I — flute + guitar</span>
+    <span class="tag t2">Soli II — synth lead</span>
+    <span class="tag t3">Soli III — tutti</span>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <div><label>Section</label>
+      <select id="section">
+        <option value="0">All three (48 bars)</option>
+        <option value="1">Soli I (bars 1–16)</option>
+        <option value="2">Soli II (bars 17–32)</option>
+        <option value="3">Soli III (bars 33–48)</option>
+      </select></div>
+    <div><label>Tempo — dotted quarter <span class="val" id="bpmv">92</span></label>
+      <input type="range" id="bpm" min="60" max="150" value="92" step="1"></div>
+    <div><label>Volume <span class="val" id="volv">70</span>%</label>
+      <input type="range" id="vol" min="0" max="100" value="70" step="1"></div>
+    <div><label>&nbsp;</label><button id="dl">⤓ MIDI</button></div>
+    <div><label>&nbsp;</label><button id="dxml">⤓ MusicXML</button></div>
+    <div><label>&nbsp;</label><button id="dump">⧉ Note list</button></div>
+  </div>
+  <div class="note" style="margin-top:10px">Click <b>Play</b> first — browsers need a user gesture before audio starts.</div>
+  <div id="err"></div>
+</div>
+
+<div class="card">
+  <b>1 — Load your piano sketch (optional)</b>
+  <div class="row" style="margin-top:8px">
+    <div><label>MIDI file (export from your DAW / piano app)</label>
+      <input type="file" id="midiFile" accept=".mid,.midi,audio/midi"></div>
+    <div><label>NO line derived from YES by</label>
+      <select id="derive">
+        <option value="inv">Inversion (mirror around axis)</option>
+        <option value="retro">Retrograde (backwards)</option>
+        <option value="down4">Down a fourth</option>
+        <option value="retroinv">Retrograde + inversion</option>
+        <option value="tritone">Tritone away</option>
+      </select></div>
+    <div><label>Transpose (semitones)</label><input type="number" id="transp" value="0" step="1" style="width:80px"></div>
+    <div><label>&nbsp;</label><button id="clearC">Use draft quartal lines</button></div>
+  </div>
+  <div class="drop" style="margin-top:10px">Drop a .mid anywhere on this page, or use the file picker above.</div>
+  <div class="status" id="loadStatus">Mode: <b>draft quartal lines</b> (mine, not yours).</div>
+  <div class="note">How it works: your MIDI is monophonised, quantised to 16ths, then tiled across the 48 bars.
+    Rising (YES) bars use it straight; falling (NO) bars use the derived version. Each bar is transposed to follow the
+    F‑E‑B‑C minor worlds.</div>
+</div>
+
+<h2>Score view</h2>
+<div id="rollWrap"><canvas id="roll"></canvas></div>
+<div class="legend">
+  <span><i class="sw" style="background:var(--flute)"></i>Flute</span>
+  <span><i class="sw" style="background:var(--synth)"></i>Synth</span>
+  <span><i class="sw" style="background:var(--guitar)"></i>Guitar</span>
+  <span><i class="sw" style="background:var(--bass)"></i>Bass</span>
+  <span><i class="sw" style="background:var(--drums)"></i>Drums (bottom lane)</span>
+  <span>— vertical = pitch, one square = one 16th, vertical lines = bars</span>
+</div>
+
+<h2>Pitch worlds &amp; structure</h2>
+<div class="grid2">
+  <div class="card">
+    <b>Quartal / pentatonic worlds</b>
+    <table style="margin-top:8px">
+      <tr><th>World</th><th>Pitches</th><th>Used in</th></tr>
+      <tr><td>F minor pent.</td><td>F Ab Bb C Eb</td><td>Soli I + III</td></tr>
+      <tr><td>E minor pent.</td><td>E G A B D</td><td>Soli I + III</td></tr>
+      <tr><td>B minor pent.</td><td>B D E F# A</td><td>Soli II + III</td></tr>
+      <tr><td>C minor pent.</td><td>C Eb F G Bb</td><td>Soli II + III</td></tr>
+    </table>
+    <p class="note" style="margin-bottom:0">Draft lines are stacked fourths (0‑5‑10‑15) so they drift out of any one key —
+      the “atonal quartal” sound. The worlds set each line's starting point.</p>
+  </div>
+  <div class="card">
+    <b>The three soli</b>
+    <table style="margin-top:8px">
+      <tr><th>#</th><th>Who</th><th>What happens</th></tr>
+      <tr><td>I</td><td>Flute + guitar</td><td>YES/NO dialogue, 2‑bar phrases, unison → octaves. F min ↔ E min.</td></tr>
+      <tr><td>II</td><td>Synth lead</td><td>Guitar comps quartal stabs. B min ↔ C min. Flute doubles from bar 25.</td></tr>
+      <tr><td>III</td><td>Tutti</td><td>3‑part parallel quartal, world rotates per bar at the end (F‑E‑B‑C). Ends on a tutti hit.</td></tr>
+    </table>
+  </div>
+</div>
+
+<h2>Placement in the ~25‑minute cue</h2>
+<div class="card">
+  <p style="margin-top:0">The 48‑bar block is <b>≈63 s</b> at ♩. = 92. Find the bar number for your target time:</p>
+  <div class="row">
+    <div><label>Target time (min)</label><input type="number" id="tmin" value="20" step="0.25" style="width:90px"></div>
+    <div><label>Tempo ♩. bpm</label><input type="number" id="tbpm" value="92" step="1" style="width:90px"></div>
+    <div><label>&nbsp;</label><button id="calc">Calculate</button></div>
+    <div style="padding-bottom:6px"><span class="val" id="calcOut">—</span></div>
+  </div>
+  <p class="note" id="calcNote">A 6/8 bar = 2 dotted quarters.</p>
+</div>
+
+<div class="card">
+  <b>Proposed arc for the full ~25 minutes</b> <span class="note">(adjust to your cues)</span>
+  <table style="margin-top:6px">
+    <tr><th>Time</th><th>Section</th><th>Material</th></tr>
+    <tr><td>0:00–3:30</td><td>Intro / theme</td><td>“Yes or No” 6/8 theme, flute over guitar ostinato</td></tr>
+    <tr><td>3:30–7:00</td><td>Variation 1</td><td>Synth enters, groove builds, first quartal hints</td></tr>
+    <tr><td>7:00–11:00</td><td>Development</td><td>Worlds rotate: F min → E min → B min → C min</td></tr>
+    <tr><td>11:00–15:30</td><td>Breakdown</td><td>Thin texture, no drums, “no” motive alone</td></tr>
+    <tr><td>15:30–19:30</td><td>Rebuild</td><td>Ostinato returns, drums build</td></tr>
+    <tr><td><b>19:30–20:35</b></td><td><b>THREE SOLI</b></td><td><b>I flute+guitar → II synth → III tutti</b></td></tr>
+    <tr><td>20:35–23:00</td><td>Final theme</td><td>Full statement, tutti, peak dynamics</td></tr>
+    <tr><td>23:00–25:00</td><td>Outro</td><td>“Yes” motive alone, decay to the quartal F chord</td></tr>
+  </table>
+</div>
+
+<h2>Note list</h2>
+<div class="card">
+  <p class="note" style="margin-top:0">bar.step · instrument · pitch · length in 16ths.</p>
+  <textarea id="dumpBox" readonly></textarea>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+var errEl=document.getElementById('err');
+function fail(e){ errEl.textContent='Error: '+(e&&e.message?e.message:e); }
+window.addEventListener('error',function(e){ fail(e.error||e.message); });
+
+/* ============ pitch helpers ============ */
+var NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function name(m){ return NAMES[((m%12)+12)%12]+(Math.floor(m/12)-1); }
+function clampOct(p,lo,hi){ while(p>hi)p-=12; while(p<lo)p+=12; return p; }
+
+/* ============ material ============ */
+var SPB=12;
+var W={Fm:{root:53,bass:41},Em:{root:52,bass:40},Bm:{root:47,bass:35},Cm:{root:48,bass:36}};
+var R={
+  RUN :[1,1,1,1,1,1,1,1,1,1,1,1],
+  TAG :[1,1,1,1,1,1,3,3],
+  SYNC:[2,1,1,2,1,1,2,2],
+  NO  :[1,1,1,1,-2,1,1,1,1,-2],
+  REST:[1,1,1,1,1,1,-6],
+  LONG:[12],
+  QN  :[6,6]
+};
+var RANGE={flute:[60,86],synth:[48,79],guitar:[40,71],bass:[28,52]};
+function B(r,w,dir,mode,parts,dyn,hit){return{r:r,w:w,dir:dir,mode:mode,parts:parts,dyn:dyn||.7,hit:!!hit};}
+
+var BARS=[
+  /* SOLI I */
+  B(R.RUN ,'Fm', 1,'unison',['flute','guitar'],.62),
+  B(R.TAG ,'Fm', 1,'unison',['flute','guitar'],.66),
+  B(R.NO  ,'Em',-1,'unison',['flute','guitar'],.60),
+  B(R.REST,'Em',-1,'unison',['flute','guitar'],.58),
+  B(R.RUN ,'Fm', 1,'unison',['flute','guitar'],.70),
+  B(R.SYNC,'Fm', 1,'unison',['flute','guitar'],.70),
+  B(R.NO  ,'Em',-1,'unison',['flute','guitar'],.66),
+  B(R.TAG ,'Em',-1,'unison',['flute','guitar'],.72,true),
+  B(R.RUN ,'Fm', 1,'octave',['flute','guitar'],.78),
+  B(R.RUN ,'Fm', 1,'octave',['flute','guitar'],.80),
+  B(R.SYNC,'Fm', 1,'octave',['flute','guitar'],.80),
+  B(R.TAG ,'Fm', 1,'octave',['flute','guitar'],.84,true),
+  B(R.NO  ,'Em',-1,'octave',['flute','guitar'],.78),
+  B(R.RUN ,'Em',-1,'octave',['flute','guitar'],.80),
+  B(R.RUN ,'Em',-1,'octave',['flute','guitar'],.84),
+  B(R.LONG,'Fm', 1,'pad',['flute','synth','guitar'],.70,true),
+  /* SOLI II */
+  B(R.RUN ,'Bm', 1,'lead',['synth'],.72,true),
+  B(R.SYNC,'Bm', 1,'lead',['synth'],.72),
+  B(R.NO  ,'Cm',-1,'lead',['synth'],.68),
+  B(R.TAG ,'Cm',-1,'lead',['synth'],.74,true),
+  B(R.RUN ,'Bm', 1,'lead',['synth'],.76),
+  B(R.RUN ,'Bm', 1,'lead',['synth'],.76),
+  B(R.SYNC,'Cm',-1,'lead',['synth'],.74),
+  B(R.TAG ,'Cm',-1,'lead',['synth'],.78,true),
+  B(R.RUN ,'Bm', 1,'lead2',['synth','flute'],.82),
+  B(R.RUN ,'Bm', 1,'lead2',['synth','flute'],.84),
+  B(R.SYNC,'Cm',-1,'lead2',['synth','flute'],.84),
+  B(R.TAG ,'Cm',-1,'lead2',['synth','flute'],.86,true),
+  B(R.RUN ,'Bm', 1,'unison',['flute','synth','guitar'],.88),
+  B(R.RUN ,'Bm', 1,'unison',['flute','synth','guitar'],.90),
+  B(R.SYNC,'Cm',-1,'unison',['flute','synth','guitar'],.90),
+  B(R.TAG ,'Cm',-1,'unison',['flute','synth','guitar'],.92,true),
+  /* SOLI III */
+  B(R.RUN ,'Fm', 1,'quartal',['flute','synth','guitar'],.92,true),
+  B(R.RUN ,'Fm', 1,'quartal',['flute','synth','guitar'],.92),
+  B(R.RUN ,'Em',-1,'quartal',['flute','synth','guitar'],.92),
+  B(R.SYNC,'Em',-1,'quartal',['flute','synth','guitar'],.90,true),
+  B(R.SYNC,'Bm', 1,'quartal',['flute','synth','guitar'],.92),
+  B(R.RUN ,'Bm', 1,'quartal',['flute','synth','guitar'],.94),
+  B(R.RUN ,'Cm',-1,'quartal',['flute','synth','guitar'],.94),
+  B(R.TAG ,'Cm',-1,'quartal',['flute','synth','guitar'],.96,true),
+  B(R.RUN ,'Fm', 1,'quartal',['flute','synth','guitar'],.96),
+  B(R.RUN ,'Em',-1,'quartal',['flute','synth','guitar'],.96),
+  B(R.RUN ,'Bm', 1,'quartal',['flute','synth','guitar'],.98),
+  B(R.RUN ,'Cm',-1,'quartal',['flute','synth','guitar'],.98,true),
+  B(R.RUN ,'Fm', 1,'quartal',['flute','synth','guitar'],1.0),
+  B(R.TAG ,'Em',-1,'quartal',['flute','synth','guitar'],1.0),
+  B(R.RUN ,'Bm', 1,'quartal',['flute','synth','guitar'],1.0,true),
+  B(R.LONG,'Fm', 1,'pad',['flute','synth','guitar'],1.0,true)
+];
+
+/* ============ build ============ */
+var CUSTOM=null;   // {yes:[{p,l}], no:[{p,l}], transpose:n, info:string}
+var EVENTS=[];
+var TOTAL=BARS.length*SPB;
+
+function emitBar(bar,d,notes,ev,world){
+  var base=bar*SPB;
+  notes.forEach(function(n){
+    var p=n.p,l=n.l,st=base+n.s;
+    if(d.mode==='unison'){
+      d.parts.forEach(function(inst){
+        ev.push({inst:inst,s:st,l:l,ps:[clampOct(p,RANGE[inst][0],RANGE[inst][1])],v:d.dyn});
+      });
+    } else if(d.mode==='octave'){
+      d.parts.forEach(function(inst){
+        var off=(inst==='flute')?12:0;
+        ev.push({inst:inst,s:st,l:l,ps:[clampOct(p+off,RANGE[inst][0],RANGE[inst][1])],v:d.dyn});
+      });
+    } else if(d.mode==='lead'||d.mode==='lead2'){
+      var lp=clampOct(p,RANGE.synth[0],RANGE.synth[1]);
+      ev.push({inst:'synth',s:st,l:l,ps:[lp],v:d.dyn});
+      if(d.mode==='lead2'){
+        ev.push({inst:'flute',s:st,l:l,ps:[clampOct(lp+12,RANGE.flute[0],RANGE.flute[1])],v:d.dyn*.8});
+      }
+    } else if(d.mode==='quartal'){
+      var top=clampOct(p,RANGE.flute[0],RANGE.flute[1]);
+      ev.push({inst:'flute', s:st,l:l,ps:[top],v:d.dyn});
+      ev.push({inst:'synth', s:st,l:l,ps:[clampOct(top-5,RANGE.synth[0],RANGE.synth[1])],v:d.dyn*.9});
+      ev.push({inst:'guitar',s:st,l:l,ps:[clampOct(top-10,RANGE.guitar[0],RANGE.guitar[1])],v:d.dyn*.9});
+    } else if(d.mode==='pad'){
+      var r=clampOct(p,60,79);
+      ev.push({inst:'flute', s:st,l:l,ps:[clampOct(r+7,60,86)],v:d.dyn*.8});
+      ev.push({inst:'synth', s:st,l:l,ps:[clampOct(r+2,48,79)],v:d.dyn*.7});
+      ev.push({inst:'guitar',s:st,l:l,ps:[clampOct(r-3,40,71)],v:d.dyn*.7});
+    }
+  });
+  if(d.mode==='lead'||d.mode==='lead2'){
+    [0,6].forEach(function(o){
+      var cp=clampOct(world.root,45,64);
+      ev.push({inst:'guitar',s:base+o,l:5,
+        ps:[cp,cp+5,cp+10,cp+15].map(function(x){return clampOct(x,40,71);}),v:.45});
+    });
+  }
+  var b0=clampOct(world.bass,RANGE.bass[0],RANGE.bass[1]);
+  ev.push({inst:'bass',s:base+0,l:6,ps:[b0],v:.75});
+  ev.push({inst:'bass',s:base+6,l:6,ps:[clampOct(b0+7,RANGE.bass[0],RANGE.bass[1])],v:.65});
+  var lvl=bar<16?1:(bar<32?2:3), k;
+  for(k=0;k<SPB;k+=2){
+    ev.push({inst:'drums',s:base+k,l:1,ps:[42],v:lvl===1?.18:(lvl===2?.26:.32)});
+  }
+  ev.push({inst:'drums',s:base+0,l:2,ps:[36],v:lvl===1?.5:.8});
+  if(lvl>=2) ev.push({inst:'drums',s:base+6,l:2,ps:[38],v:.6});
+  if(lvl===3) ev.push({inst:'drums',s:base+9,l:1,ps:[38],v:.35});
+  if(d.hit)  ev.push({inst:'drums',s:base+0,l:2,ps:[49],v:.55});
+}
+
+function build(){
+  var ev=[],cur=W.Fm.root,ptr=0,bar,d,notes,world,s,i,len;
+  for(bar=0;bar<BARS.length;bar++){
+    d=BARS[bar]; world=W[d.w]; notes=[];
+    if(CUSTOM){
+      var line=(d.dir>0)?CUSTOM.yes:CUSTOM.no;
+      var tp=(world.root-W.Fm.root)+(CUSTOM.transpose||0);
+      var used=0,guard=0;
+      while(used<SPB && guard++<400){
+        if(ptr>=line.length) ptr=0;
+        var n=line[ptr++];
+        len=Math.min(Math.max(1,n.l),SPB-used);
+        notes.push({s:used,l:len,p:n.p+tp});
+        used+=len;
+      }
+    } else {
+      s=0;
+      for(i=0;i<d.r.length;i++){
+        len=d.r[i];
+        if(len>0){ notes.push({s:s,l:len,p:cur}); cur+=d.dir*5; }
+        s+=Math.abs(len);
+      }
+    }
+    emitBar(bar,d,notes,ev,world);
+  }
+  return ev;
+}
+function rebuild(){
+  EVENTS=build();
+  drawRoll();
+  document.getElementById('dumpBox').value=dumpText();
+}
+
+/* ============ MIDI import ============ */
+function parseMIDI(buf){
+  var dv=new DataView(buf);
+  if(dv.byteLength<14) throw new Error('file too small to be MIDI');
+  var sig=String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3));
+  if(sig!=='MThd') throw new Error('not a MIDI file');
+  var ntrk=dv.getUint16(10), div=dv.getUint16(12);
+  var tpq=(div&0x8000)?480:div;
+  var pos=14, notes=[], t, tempo=null;
+  for(t=0;t<ntrk;t++){
+    if(pos+8>dv.byteLength) break;
+    var ts=String.fromCharCode(dv.getUint8(pos),dv.getUint8(pos+1),dv.getUint8(pos+2),dv.getUint8(pos+3));
+    var tlen=dv.getUint32(pos+4); pos+=8;
+    var end=Math.min(pos+tlen,dv.byteLength);
+    if(ts!=='MTrk'){ pos=end; continue; }
+    var time=0,status=0,open={};
+    while(pos<end){
+      var v=0,b,shift=0;
+      do{ b=dv.getUint8(pos++); v=(v<<7)|(b&0x7f); }while(b&0x80 && pos<end);
+      time+=v;
+      if(pos>=end) break;
+      b=dv.getUint8(pos);
+      if(b&0x80){ status=b; pos++; }
+      var hi=status&0xf0, ch=status&0x0f;
+      if(status===0xFF){
+        var mt=dv.getUint8(pos++), ml=0;
+        do{ b=dv.getUint8(pos++); ml=(ml<<7)|(b&0x7f);}while(b&0x80 && pos<end);
+        if(mt===0x51&&ml===3&&tempo===null){
+          tempo=(dv.getUint8(pos)<<16)|(dv.getUint8(pos+1)<<8)|dv.getUint8(pos+2);
+        }
+        pos+=ml;
+      } else if(hi===0x90||hi===0x80){
+        var p=dv.getUint8(pos++), vel=(pos<end)?dv.getUint8(pos++):0;
+        var key=p+':'+(ch===9?'d':ch);
+        if(hi===0x90&&vel>0){ (open[key]=open[key]||[]).push({t:time,v:vel}); }
+        else { var arr=open[key]; if(arr&&arr.length){ var st=arr.shift();
+          notes.push({p:p,s:st.t,e:time,v:st.v,ch:ch}); } }
+      } else if(hi===0xA0||hi===0xB0||hi===0xE0){ pos+=2; }
+      else if(hi===0xC0||hi===0xD0){ pos+=1; }
+      else { pos+=1; }
+    }
+    pos=end;
+  }
+  return {notes:notes,tpq:tpq,tempo:tempo};
+}
+function monophonic(notes){
+  notes=notes.filter(function(n){return n.ch!==9;});
+  if(!notes.length) throw new Error('no melodic notes found (drums only?)');
+  notes.sort(function(a,b){ return a.s-b.s || b.v-a.v || b.p-a.p; });
+  var out=[],i=0;
+  while(i<notes.length){
+    var s=notes[i].s, grp=[];
+    while(i<notes.length&&notes[i].s===s) grp.push(notes[i++]);
+    grp.sort(function(a,b){ return b.v-a.v || b.p-a.p; });
+    out.push({p:grp[0].p,s:s,e:grp[0].e,v:grp[0].v});
+  }
+  for(var k=0;k<out.length-1;k++) if(out[k].e>out[k+1].s) out[k].e=out[k+1].s;
+  out=out.filter(function(n){return n.e>n.s;});
+  // merge repeated adjacent pitches
+  var m=[];
+  out.forEach(function(n){
+    var last=m[m.length-1];
+    if(last&&last.p===n.p&&last.e>=n.s-0){ last.e=Math.max(last.e,n.e); }
+    else m.push({p:n.p,s:n.s,e:n.e});
+  });
+  return m;
+}
+function derive(line,mode){
+  var ps=line.map(function(n){return n.p;});
+  var lo=Math.min.apply(null,ps), hi=Math.max.apply(null,ps), axis=Math.round((lo+hi)/2);
+  if(mode==='inv')      return line.map(function(n){return{p:2*axis-n.p,l:n.l};});
+  if(mode==='retro')    return line.slice().reverse().map(function(n){return{p:n.p,l:n.l};});
+  if(mode==='down4')    return line.map(function(n){return{p:n.p-5,l:n.l};});
+  if(mode==='tritone')  return line.map(function(n){return{p:n.p+6,l:n.l};});
+  /* retroinv */        return line.slice().reverse().map(function(n){return{p:2*axis-n.p,l:n.l};});
+}
+function loadMIDIArrayBuffer(ab){
+  var parsed=parseMIDI(ab);
+  var mono=monophonic(parsed.notes);
+  if(mono.length<4) throw new Error('only '+mono.length+' notes found — is the MIDI empty?');
+  // unit = most common (smallest) duration
+  var durs=mono.map(function(n){return n.e-n.s;}).filter(function(d){return d>0;});
+  durs.sort(function(a,b){return a-b;});
+  var unit=durs[Math.floor(durs.length*0.15)]||durs[0]||1;
+  if(!unit||unit<=0) unit=1;
+  var t0=mono[0].s;
+  var line=mono.map(function(n){
+    return {p:n.p,l:Math.max(1,Math.round((n.e-n.s)/unit))};
+  });
+  var mode=document.getElementById('derive').value;
+  var tr=parseInt(document.getElementById('transp').value,10)||0;
+  var ps=line.map(function(n){return n.p;});
+  CUSTOM={yes:line,no:derive(line,mode),transpose:tr,
+    info:'your MIDI: '+line.length+' notes, '+(parsed.tpq||'?')+' tpq, range '+name(Math.min.apply(null,ps))+'–'+name(Math.max.apply(null,ps))};
+  rebuild();
+  var st=document.getElementById('loadStatus');
+  st.className='status ok';
+  st.innerHTML='Mode: <b>your MIDI theme</b> — '+CUSTOM.info;
+}
+
+/* ============ audio ============ */
+var ctx=null,master=null,nodes=[],playing=false,startT=0,SD=0.1;
+var VOICE={
+  flute :{type:'triangle',a:.02,d:.10,s:.75,r:.12,cut:4200,gain:.30,vib:5.5},
+  synth :{type:'sawtooth',a:.01,d:.08,s:.60,r:.10,cut:1800,gain:.16},
+  guitar:{type:'sawtooth',a:.004,d:.16,s:.25,r:.16,cut:2600,gain:.20},
+  bass  :{type:'sine',a:.01,d:.10,s:.70,r:.10,cut:700,gain:.42}
+};
+function hz(m){ return 440*Math.pow(2,(m-69)/12); }
+function ensureCtx(){
+  if(ctx) return ctx;
+  var AC=window.AudioContext||window.webkitAudioContext;
+  ctx=new AC(); master=ctx.createGain();
+  master.gain.value=document.getElementById('vol').value/100;
+  master.connect(ctx.destination); return ctx;
+}
+function noise(dur){
+  var n=Math.max(1,Math.floor(ctx.sampleRate*dur)),buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);
+  for(var i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+  var s=ctx.createBufferSource(); s.buffer=buf; return s;
+}
+function sched(ev,t0,sd){
+  var v=VOICE[ev.inst]; if(!v) return;
+  var when=t0+ev.s*sd, dur=Math.max(0.05,ev.l*sd*0.92);
+  ev.ps.forEach(function(p,idx){
+    var o=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
+    o.type=v.type; o.frequency.value=hz(p);
+    f.type='lowpass'; f.frequency.value=v.cut;
+    var peak=v.gain*ev.v*(idx?0.7:1);
+    g.gain.setValueAtTime(0.0001,when);
+    g.gain.linearRampToValueAtTime(peak,when+v.a);
+    g.gain.linearRampToValueAtTime(peak*v.s,when+v.a+v.d);
+    g.gain.setValueAtTime(peak*v.s,when+dur);
+    g.gain.linearRampToValueAtTime(0.0001,when+dur+v.r);
+    o.connect(f); f.connect(g); g.connect(master);
+    if(ev.inst==='flute'&&v.vib){
+      var lfo=ctx.createOscillator(),lg=ctx.createGain();
+      lfo.frequency.value=v.vib; lg.gain.value=3.5; lfo.connect(lg); lg.connect(o.frequency);
+      lfo.start(when); lfo.stop(when+dur+v.r+.05); nodes.push(lfo);
+    }
+    o.start(when); o.stop(when+dur+v.r+.05); nodes.push(o);
+  });
+}
+function drum(ev,t0,sd){
+  var when=t0+ev.s*sd,p=ev.ps[0],g=ctx.createGain(),f=ctx.createBiquadFilter();
+  if(p===36){
+    var o=ctx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(120,when); o.frequency.exponentialRampToValueAtTime(45,when+.12);
+    g.gain.setValueAtTime(.9*ev.v,when); g.gain.exponentialRampToValueAtTime(.001,when+.22);
+    o.connect(g); g.connect(master); o.start(when); o.stop(when+.25); nodes.push(o); return;
+  }
+  var dur=(p===49)?1.1:((p===38)?.17:.05);
+  var src=noise(dur); f.type=(p===42)?'highpass':'bandpass';
+  f.frequency.value=(p===42)?8000:((p===38)?1900:6000);
+  g.gain.setValueAtTime(.5*ev.v,when); g.gain.exponentialRampToValueAtTime(.001,when+dur);
+  src.connect(f); f.connect(g); g.connect(master); src.start(when); src.stop(when+dur+.02); nodes.push(src);
+}
+function range(sel){
+  if(sel===1) return [0,16*SPB];
+  if(sel===2) return [16*SPB,32*SPB];
+  if(sel===3) return [32*SPB,TOTAL];
+  return [0,TOTAL];
+}
+function play(){
+  try{
+    ensureCtx();
+    if(ctx.state==='suspended') ctx.resume();
+    stop();
+    var bpm=+document.getElementById('bpm').value;
+    SD=(60/bpm)/6;
+    var rng=range(+document.getElementById('section').value);
+    var t0=ctx.currentTime+0.08;
+    EVENTS.forEach(function(ev){
+      if(ev.s<rng[0]||ev.s>=rng[1]) return;
+      var e2={inst:ev.inst,s:ev.s-rng[0],l:ev.l,ps:ev.ps,v:ev.v};
+      if(ev.inst==='drums') drum(e2,t0,SD); else sched(e2,t0,SD);
+    });
+    playing=true; startT=t0;
+  }catch(e){ fail(e); }
+}
+function stop(){
+  playing=false;
+  nodes.forEach(function(n){ try{n.stop(0);}catch(e){} try{n.disconnect();}catch(e){} });
+  nodes=[];
+}
+
+/* ============ score view ============ */
+var cv=document.getElementById('roll'),cx=cv.getContext('2d');
+var PPS=7,CELL=6,PADL=44,PADT=18,DRUMH=34;
+var COL={flute:'#2b7a78',synth:'#6b4ea8',guitar:'#c2703a',bass:'#3b6ea5',drums:'#8b8d96'};
+function bounds(rng){
+  var lo=127,hi=0;
+  EVENTS.forEach(function(e){
+    if(e.s<rng[0]||e.s>=rng[1]||e.inst==='drums') return;
+    e.ps.forEach(function(p){ if(p<lo)lo=p; if(p>hi)hi=p; });
+  });
+  if(hi<lo){ lo=48; hi=84; }
+  lo=Math.floor((lo-1)/12)*12; hi=Math.ceil((hi+1)/12)*12;
+  return [lo,hi];
+}
+function drawRoll(){
+  var rng=range(+document.getElementById('section').value);
+  var steps=rng[1]-rng[0], bb=bounds(rng), lo=bb[0], hi=bb[1];
+  var w=steps*PPS+PADL+20, h=PADT+(hi-lo+1)*CELL+DRUMH+10;
+  cv.width=w; cv.height=h; cv.style.width=w+'px'; cv.style.height=h+'px';
+  cx.clearRect(0,0,w,h);
+  var yOf=function(p){ return PADT+(hi-p)*CELL; };
+  // octave bands + pitch labels
+  cx.font='9px system-ui'; cx.textBaseline='middle';
+  for(var p=lo;p<=hi;p++){
+    var pc=((p%12)+12)%12, y=yOf(p);
+    if(pc===0){ cx.fillStyle='#eef0f4'; cx.fillRect(0,y-CELL/2,w,CELL*6);
+      cx.fillStyle='#98a0ad'; cx.fillText(name(p),4,y); }
+  }
+  cx.strokeStyle='#e9ebef';
+  for(var q=lo;q<=hi;q++){ if(((q%12)+12)%12===0){ var yy=yOf(q)+CELL/2;
+    cx.beginPath(); cx.moveTo(PADL,yy); cx.lineTo(w,yy); cx.stroke(); } }
+  // bar lines
+  for(var b=0;b<=steps/SPB;b++){
+    var x=PADL+b*SPB*PPS;
+    cx.strokeStyle=(b%4===0)?'#c9ccd4':'#eceef2';
+    cx.beginPath(); cx.moveTo(x,PADT-10); cx.lineTo(x,h-DRUMH); cx.stroke();
+    if(b%4===0&&b<steps/SPB){ cx.fillStyle='#6a6d76'; cx.fillText('bar '+(rng[0]/SPB+b+1),x+3,PADT-12); }
+  }
+  // drum lane
+  var dy=h-DRUMH+4;
+  cx.fillStyle='#f7f8fa'; cx.fillRect(0,dy,w,DRUMH-6);
+  cx.fillStyle='#98a0ad'; cx.fillText('drums',4,dy+11);
+  // notes
+  EVENTS.forEach(function(ev){
+    if(ev.s<rng[0]||ev.s>=rng[1]) return;
+    var x=PADL+(ev.s-rng[0])*PPS, ww=Math.max(3,ev.l*PPS-1);
+    cx.fillStyle=COL[ev.inst]||'#888';
+    cx.globalAlpha=.35+.65*ev.v;
+    if(ev.inst==='drums'){
+      var off=ev.ps[0]===36?2:(ev.ps[0]===38?13:(ev.ps[0]===49?24:34));
+      cx.fillRect(x,dy+off,ww,8);
+    } else {
+      ev.ps.forEach(function(p){
+        var y=yOf(p)-CELL/2+1;
+        cx.fillRect(x,y,ww,CELL-2);
+      });
+    }
+    cx.globalAlpha=1;
+  });
+}
+function loop(){
+  if(playing&&ctx){
+    var st=(ctx.currentTime-startT)/SD;
+    var rng=range(+document.getElementById('section').value), steps=rng[1]-rng[0];
+    if(st>steps+2){ stop(); }
+    else{
+      var x=PADL+st*PPS, wrap=document.getElementById('rollWrap');
+      if(x>wrap.scrollLeft+wrap.clientWidth-140) wrap.scrollLeft=x-140;
+      if(x<wrap.scrollLeft) wrap.scrollLeft=Math.max(0,x-60);
+      drawRoll();
+      cx.strokeStyle='#b3402f'; cx.lineWidth=2;
+      cx.beginPath(); cx.moveTo(x,PADT-10); cx.lineTo(x,cv.height-DRUMH); cx.stroke();
+      cx.lineWidth=1;
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ============ MIDI export ============ */
+function vlq(n){ var a=[n&0x7f]; n=Math.floor(n/128);
+  while(n>0){ a.unshift((n&0x7f)|0x80); n=Math.floor(n/128); } return a; }
+function midiBytes(bpm){
+  var TPQ=480,TICK=TPQ/4, CH={flute:0,synth:1,guitar:2,bass:3}, PROG={flute:73,synth:80,guitar:27,bass:33};
+  var list=[], uspq=Math.round(40e6/bpm);
+  list.push({t:0,pr:0,d:[0xFF,0x51,0x03,(uspq>>16)&255,(uspq>>8)&255,uspq&255]});
+  list.push({t:0,pr:1,d:[0xFF,0x58,0x04,0x06,0x03,0x18,0x08]});
+  list.push({t:0,pr:2,d:[0xC0|0,73]}); list.push({t:0,pr:2,d:[0xC1,80]});
+  list.push({t:0,pr:2,d:[0xC2,27]}); list.push({t:0,pr:2,d:[0xC3,33]});
+  EVENTS.forEach(function(ev){
+    var st=ev.s*TICK,en=(ev.s+ev.l)*TICK,drum=(ev.inst==='drums');
+    ev.ps.forEach(function(p){
+      if(drum){
+        list.push({t:st,pr:5,d:[0x99,p&0x7f,Math.round(90*ev.v)]});
+        list.push({t:en,pr:4,d:[0x89,p&0x7f,0]});
+      } else {
+        var ch=CH[ev.inst]||0;
+        list.push({t:st,pr:5,d:[0x90|ch,p&0x7f,Math.round(110*ev.v)]});
+        list.push({t:en,pr:4,d:[0x80|ch,p&0x7f,0]});
+      }
+    });
+  });
+  list.sort(function(a,b){ return (a.t-b.t)||(a.pr-b.pr); });
+  var trk=[],last=0;
+  list.forEach(function(e){ trk=trk.concat(vlq(e.t-last)); last=e.t; trk=trk.concat(e.d); });
+  trk=trk.concat([0x00,0xFF,0x2F,0x00]);
+  var len=trk.length;
+  var head=[0x4D,0x54,0x68,0x64,0,0,0,6,0,0,0,1,(TPQ>>8)&255,TPQ&255];
+  return new Uint8Array(head.concat([0x4D,0x54,0x72,0x6B,(len>>24)&255,(len>>16)&255,(len>>8)&255,len&255]).concat(trk));
+}
+function save(blob,fn){
+  var url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url; a.download=fn; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},4000);
+}
+function downloadMIDI(){
+  try{ var bpm=+document.getElementById('bpm').value;
+    save(new Blob([midiBytes(bpm)],{type:'audio/midi'}),'yes_or_no_soli_'+bpm+'bpm.mid'); }
+  catch(e){ fail(e); }
+}
+
+/* ============ MusicXML export ============ */
+var DURS=[[12,'half',1],[6,'quarter',1],[4,'quarter',0],[3,'eighth',1],[2,'eighth',0],[1,'16th',0]];
+function decomp(len){ var out=[],rem=len;
+  for(var i=0;i<DURS.length;i++){ while(rem>=DURS[i][0]){ out.push(DURS[i]); rem-=DURS[i][0]; } }
+  if(rem>0) out.push([rem,'16th',0]);
+  return out;
+}
+function pitchXML(p){
+  var pc=((p%12)+12)%12, oct=Math.floor(p/12)-1;
+  var nm=NAMES[pc], s='<step>'+nm[0]+'</step>';
+  if(nm.length>1) s+='<alter>'+(nm[1]==='#'?1:-1)+'</alter>';
+  return '<pitch>'+s+'<octave>'+oct+'</octave></pitch>';
+}
+var DRUMSTEP={36:['F',4],38:['C',5],42:['G',5],49:['A',5]};
+function musicXML(bpm){
+  var PARTS=[
+    {id:'P1',nm:'Flute',inst:'flute',clef:'G'},
+    {id:'P2',nm:'Synth',inst:'synth',clef:'G'},
+    {id:'P3',nm:'Guitar',inst:'guitar',clef:'G'},
+    {id:'P4',nm:'Bass',inst:'bass',clef:'F'},
+    {id:'P5',nm:'Drums',inst:'drums',clef:'percussion'}
+  ];
+  var x='<?xml version="1.0" encoding="UTF-8"?>\n'+
+    '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.0 Partwise//EN" '+
+    '"http://www.musicxml.org/dtds/partwise.dtd">\n'+
+    '<score-partwise version="3.0"><work><work-title>Yes or No 6-8 — three soli</work-title></work><part-list>';
+  PARTS.forEach(function(p){
+    x+='<score-part id="'+p.id+'"><part-name>'+p.nm+'</part-name></score-part>';
+  });
+  x+='</part-list>';
+  PARTS.forEach(function(p){
+    x+='<part id="'+p.id+'">';
+    for(var bar=0;bar<BARS.length;bar++){
+      x+='<measure number="'+(bar+1)+'">';
+      if(bar===0){
+        x+='<attributes><divisions>4</divisions><key><fifths>0</fifths></key>'+
+           '<time><beats>6</beats><beat-type>8</beat-type></time>'+
+           '<clef><sign>'+(p.clef==='percussion'?'percussion':p.clef)+'</sign>'+
+           (p.clef==='F'?'<line>4</line>':'')+'</clef></attributes>'+
+           '<direction placement="above"><sound tempo="'+Math.round(bpm*1.5)+'"/>'+
+           '<metronome><beat-unit>quarter</beat-unit><beat-unit-dot/>'+
+           '<per-minute>'+bpm+'</per-minute></metronome></direction>';
+      }
+      var base=bar*SPB;
+      var evs=EVENTS.filter(function(e){ return e.inst===p.inst && e.s>=base && e.s<base+SPB; });
+      evs.sort(function(a,b){ return a.s-b.s; });
+      var pos=0;
+      evs.forEach(function(e){
+        var s=e.s-base;
+        if(s>pos){ // rest
+          decomp(s-pos).forEach(function(d){
+            x+='<note><rest/><duration>'+d[0]+'</duration><type>'+d[1]+'</type>'+(d[2]?'<dot/>':'')+'</note>';
+          });
+        }
+        var pieces=decomp(e.l);
+        pieces.forEach(function(d,i){
+          x+='<note>';
+          if(p.inst==='drums'){
+            var ds=DRUMSTEP[e.ps[0]]||['B',4];
+            x+='<unpitched><display-step>'+ds[0]+'</display-step><display-octave>'+ds[1]+'</display-octave></unpitched>';
+          } else {
+            x+=pitchXML(e.ps[0]);
+          }
+          x+='<duration>'+d[0]+'</duration>';
+          if(p.inst!=='drums'){
+            if(i===0&&pieces.length>1) x+='<tie type="start"/>';
+            if(i>0) x+='<tie type="stop"/>';
+          }
+          x+='<type>'+d[1]+'</type>'+(d[2]?'<dot/>':'')+'</note>';
+        });
+        pos=Math.max(pos,s+e.l);
+      });
+      if(pos<SPB){
+        decomp(SPB-pos).forEach(function(d){
+          x+='<note><rest/><duration>'+d[0]+'</duration><type>'+d[1]+'</type>'+(d[2]?'<dot/>':'')+'</note>';
+        });
+      }
+      x+='</measure>';
+    }
+    x+='</part>';
+  });
+  x+='</score-partwise>';
+  return x;
+}
+function downloadXML(){
+  try{ var bpm=+document.getElementById('bpm').value;
+    save(new Blob([musicXML(bpm)],{type:'application/vnd.recordare.musicxml+xml'}),'yes_or_no_soli_'+bpm+'bpm.musicxml'); }
+  catch(e){ fail(e); }
+}
+
+/* ============ note list ============ */
+function dumpText(){
+  var lines=[],sorted=EVENTS.slice().sort(function(a,b){return a.s-b.s;});
+  sorted.forEach(function(ev){
+    if(ev.inst==='drums') return;
+    lines.push('bar '+(Math.floor(ev.s/SPB)+1)+'.'+(ev.s%SPB+1)+'\t'+ev.inst+'\t'+ev.ps.map(name).join(' ')+'\tlen '+ev.l);
+  });
+  return lines.join('\n');
+}
+
+/* ============ wiring ============ */
+document.getElementById('play').onclick=play;
+document.getElementById('stop').onclick=stop;
+document.getElementById('dl').onclick=downloadMIDI;
+document.getElementById('dxml').onclick=downloadXML;
+document.getElementById('bpm').oninput=function(){
+  document.getElementById('bpmv').textContent=this.value;
+  document.getElementById('tbpm').value=this.value;
+};
+document.getElementById('vol').oninput=function(){
+  document.getElementById('volv').textContent=this.value;
+  if(master) master.gain.value=this.value/100;
+};
+document.getElementById('section').onchange=function(){ stop(); drawRoll(); };
+document.getElementById('clearC').onclick=function(){
+  CUSTOM=null; rebuild();
+  var st=document.getElementById('loadStatus');
+  st.className='status'; st.innerHTML='Mode: <b>draft quartal lines</b> (mine, not yours).';
+};
+document.getElementById('derive').onchange=function(){
+  if(!CUSTOM) return;
+  var mode=this.value;
+  // rebuild no-line from a fresh inversion of yes
+  CUSTOM.no=derive(CUSTOM.yes,mode);
+  rebuild();
+};
+document.getElementById('transp').oninput=function(){
+  if(!CUSTOM) return;
+  CUSTOM.transpose=parseInt(this.value,10)||0; rebuild();
+};
+document.getElementById('midiFile').onchange=function(){
+  var f=this.files&&this.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){ try{ loadMIDIArrayBuffer(rd.result); }
+    catch(e){ var st=document.getElementById('loadStatus'); st.className='status bad';
+      st.textContent='Could not read that MIDI: '+e.message; } };
+  rd.readAsArrayBuffer(f);
+};
+document.getElementById('dump').onclick=function(){
+  var box=document.getElementById('dumpBox');
+  box.value=dumpText(); box.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  box.setSelectionRange(0,0);
+  this.textContent='✓ Copied';
+  var self=this; setTimeout(function(){ self.textContent='⧉ Note list'; },1600);
+};
+document.getElementById('calc').onclick=function(){
+  var min=+document.getElementById('tmin').value,bpm=+document.getElementById('tbpm').value;
+  var barSec=2*(60/bpm),bar=Math.round(min*60/barSec)+1;
+  document.getElementById('calcOut').textContent='start at bar '+bar+'  (block ends bar '+(bar+47)+')';
+  document.getElementById('calcNote').textContent='At ♩.='+bpm+' a bar is '+barSec.toFixed(2)+
+    ' s; the 48-bar block lasts '+(barSec*48/60).toFixed(2)+' min.';
+};
+['dragenter','dragover'].forEach(function(t){
+  document.addEventListener(t,function(e){ e.preventDefault(); });
+});
+document.addEventListener('drop',function(e){
+  e.preventDefault();
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!f) return;
+  if(!/\.(mid|midi)$/i.test(f.name)){
+    var st=document.getElementById('loadStatus'); st.className='status bad';
+    st.textContent='That is not a .mid file. (I cannot read audio or PDF in the browser — MIDI only.)';
+    return;
+  }
+  var rd=new FileReader();
+  rd.onload=function(){ try{ loadMIDIArrayBuffer(rd.result); }
+    catch(er){ var st=document.getElementById('loadStatus'); st.className='status bad';
+      st.textContent='Could not read that MIDI: '+er.message; } };
+  rd.readAsArrayBuffer(f);
+});
+
+EVENTS=build();
+rebuild();
+document.getElementById('calc').click();
+loop();
+})();
+</script>
+</body>
+</html>

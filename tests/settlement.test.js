@@ -56,7 +56,7 @@ test("construction costs coins, prevents overlap and scales waves with settlemen
   const threat = w.threat;
   s.nextWave = 0.1;
   w.tick(0.2);
-  assert.equal(s.wolves.length, threat);
+  assert.equal(s.wolves.length, threat+1);
 });
 test("walls block and take damage, repairs restore them", () => {
   const w = new World(),

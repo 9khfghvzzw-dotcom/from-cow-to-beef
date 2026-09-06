@@ -1,4 +1,5 @@
 import { CROPS } from "./world.js";
+import {drawGuardian,drawTechnician} from './engineering-render.js';
 const TAU = Math.PI * 2;
 export class Renderer {
   constructor(canvas) {
@@ -235,7 +236,7 @@ export class Renderer {
     const robot =
       n.id === "vet" ||
       (n.id === "partner" && n.role === "Robot companion") ||
-      (n.id === "child" && n.role === "Human–robot child");
+      (n.id === "child" && ['Human–robot child','Robot child'].includes(n.role));
     c.fillStyle = robot ? "#647971" : "#394d40";
     c.fillRect(-10, -9, 7, 17);
     c.fillRect(4, -9, 7, 17);
@@ -267,6 +268,18 @@ export class Renderer {
       c.fillStyle = player ? "#556548" : "#a7925c";
       c.fillRect(-10, -66, 20, 9);
     }
+    if(!robot){c.fillStyle='#fff7df';c.fillRect(2,-52,5,4);c.fillStyle='#344338';c.fillRect(5,-52,2,4);c.fillStyle='#ce805e';c.fillRect(8,-46,3,3);c.fillStyle='#eec096';c.fillRect(12,-36,7,20);}
+    if(player){
+      const held=n.held;c.save();c.translate(22,-20);
+      if(held==='watering_can'){c.fillStyle='#48b7d7';c.fillRect(-7,-8,18,17);this.path([[11,-4],[22,-10],[25,-5],[11,5]],'#91e8ed');}
+      else if(held==='hoe'||held==='staff'||held==='spear'){c.strokeStyle='#cc9b55';c.lineWidth=4;c.beginPath();c.moveTo(0,14);c.lineTo(9,-39);c.stroke();if(held!=='staff')this.path([[6,-38],[18,-43],[16,-30],[5,-27]],'#b3dce4');}
+      else if(held==='bow'){c.strokeStyle='#d9a058';c.lineWidth=3;c.beginPath();c.arc(-9,-10,23,-1.2,1.2);c.stroke();c.lineWidth=1;c.beginPath();c.moveTo(-1,-31);c.lineTo(-1,11);c.stroke();}
+      else if(held==='blaster'||held==='cryo'){c.fillStyle=held==='cryo'?'#7fccef':'#588e98';c.fillRect(0,-12,25,11);c.fillStyle='#b6f8ff';c.fillRect(16,-10,12,5);}
+      else if(held==='hammer'){c.strokeStyle='#c49359';c.lineWidth=5;c.beginPath();c.moveTo(0,12);c.lineTo(7,-18);c.stroke();c.fillStyle='#77b4c4';c.fillRect(-5,-29,26,14);}
+      else if(held==='screwdriver'){c.strokeStyle='#c8e6df';c.lineWidth=3;c.beginPath();c.moveTo(0,1);c.lineTo(9,-24);c.stroke();c.strokeStyle='#f8b945';c.lineWidth=7;c.beginPath();c.moveTo(-3,10);c.lineTo(2,-3);c.stroke();}
+      else {this.path([[0,2],[5,-29],[11,-35],[15,-26],[8,4]],'#c7e7ea','#628e9e',1);c.fillStyle='#efbf62';c.fillRect(-5,0,18,4);c.fillStyle='#91543c';c.fillRect(1,4,6,10);}
+      c.restore();
+    }
     c.restore();
     if (!player)
       this.label(n.x, n.y - 82, n.id === "vet" ? "B.O.V.I." : n.name);
@@ -297,7 +310,8 @@ export class Renderer {
     c.scale(this.scale, this.scale);
     const ground = c.createLinearGradient(0, 100, 0, 1100);
     ground.addColorStop(0, "#aabd80");
-    ground.addColorStop(1, "#698c54");
+    ground.addColorStop(.5, '#8cc05b');
+    ground.addColorStop(1, "#4b954d");
     c.fillStyle = ground;
     c.fillRect(-2000, -2000, 6000, 5000);
     this.path(
@@ -435,7 +449,9 @@ export class Renderer {
         draw: () => this.animal(a, s.time, a.id === s.selected),
       })),
       ...s.npcs.map((n) => ({ y: n.y, draw: () => this.person(n, s.time) })),
-      { y: s.player.y, draw: () => this.person(s.player, s.time, true) },
+      ...s.guards.map(g=>({y:g.y,draw:()=>drawGuardian(this,g,s.time,g.id===s.selected)})),
+      ...s.technicians.map(t=>({y:t.y,draw:()=>drawTechnician(this,t,s.time)})),
+      { y: s.player.y, draw: () => this.person({...s.player,held:s.activeTool==='weapon'?s.weapon:s.activeTool}, s.time, true) },
     ];
     for (const [x, y, z] of [
       [160, 500, 1.4],
@@ -499,6 +515,9 @@ export class Renderer {
       });
     entities.sort((a, b) => a.y - b.y).forEach((e) => e.draw());
     for (const e of s.effects) {
+      if(e.kind==='electric'){
+        c.save();c.strokeStyle='#b2f5ff';c.lineWidth=4;c.shadowColor='#5fd8ff';c.shadowBlur=16;c.beginPath();c.moveTo(e.x+48,e.y);c.lineTo((e.x+e.tx)/2,e.y-20);c.lineTo((e.x+e.tx)/2+12,e.y+5);c.lineTo(e.tx,e.ty);c.stroke();c.restore();continue;
+      }
       const t = 2 - (e.until - s.time),
         colors = {
           rain: "#afd6e2",
