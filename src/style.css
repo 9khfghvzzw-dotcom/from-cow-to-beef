@@ -1,0 +1,615 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap");
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #f4efdf;
+  background: #182f2a;
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #ffffff29;
+  color: inherit;
+  background: #ffffff0c;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+button:hover {
+  background: #ffffff20;
+}
+button:focus-visible {
+  outline: 3px solid #e3bd72;
+  outline-offset: 3px;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+header {
+  height: 100px;
+  display: flex;
+  gap: 30px;
+  align-items: center;
+  padding: 20px 30px;
+  border-bottom: 1px solid #ffffff16;
+  background: #172c27;
+}
+.brand {
+  color: inherit;
+  text-decoration: none;
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+.brand span {
+  color: #dfbb76;
+}
+.brand small {
+  display: block;
+  font:
+    9px "DM Sans",
+    sans-serif;
+  letter-spacing: 3px;
+  margin-top: 10px;
+  color: #acb9a5;
+}
+.progress {
+  min-width: 150px;
+  flex: 1;
+  max-width: 250px;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+}
+.progress small {
+  color: #a6b8a8;
+  letter-spacing: 0;
+  font-size: 10px;
+}
+.track {
+  height: 4px;
+  background: #ffffff17;
+  margin: 8px 0 5px;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.track i {
+  display: block;
+  background: #dfbb76;
+  height: 100%;
+  transition: width 0.4s;
+}
+.resources {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+nav {
+  display: flex;
+  gap: 7px;
+  margin-left: auto;
+}
+nav button {
+  font-size: 11px;
+  padding: 8px 10px;
+}
+.play-area {
+  position: relative;
+  height: calc(100dvh - 100px);
+  min-height: 440px;
+  overflow: hidden;
+}
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.location {
+  position: absolute;
+  top: 25px;
+  left: 30px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #f1f1d9;
+  text-shadow: 0 1px 4px #24362a;
+}
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #e2c68c;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+.location small {
+  display: block;
+  margin: 7px 0 0 16px;
+  font-size: 10px;
+  letter-spacing: 0.4px;
+}
+.quests,
+.selection {
+  position: absolute;
+  border: 1px solid #e7e2be2a;
+  background: #19322ced;
+  box-shadow: 0 10px 40px #15291e30;
+  backdrop-filter: blur(12px);
+  border-radius: 13px;
+  padding: 20px;
+  width: 240px;
+}
+.quests {
+  top: 80px;
+  left: 28px;
+}
+.selection {
+  top: 25px;
+  right: 28px;
+}
+.eyebrow {
+  color: #d3b97e;
+  font-size: 9px;
+  letter-spacing: 2px;
+  margin: 0 0 10px;
+}
+h1,
+h2,
+h3 {
+  font-family: "Playfair Display", serif;
+  font-weight: 500;
+}
+h2 {
+  font-size: 24px;
+  margin: 0 0 10px;
+}
+aside p:not(.eyebrow) {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #becbbb;
+  margin: 8px 0;
+}
+aside small {
+  font-size: 10px;
+  color: #9eaf9f;
+  line-height: 1.7;
+}
+aside button {
+  font-size: 11px;
+  padding: 8px 10px;
+  margin: 5px 3px 0 0;
+}
+#quest-progress {
+  font-size: 11px;
+  color: #e3c381;
+  margin-top: 13px;
+}
+.meter {
+  margin: 10px 0;
+  font-size: 10px;
+  display: grid;
+  grid-template-columns: 55px 1fr 30px;
+  gap: 7px;
+  align-items: center;
+}
+.meter i {
+  height: 4px;
+  border-radius: 5px;
+  background: #ffffff15;
+  overflow: hidden;
+}
+.meter b {
+  height: 100%;
+  display: block;
+  background: #a6c687;
+}
+.meter em {
+  font-style: normal;
+  text-align: right;
+  color: #d8dfcd;
+}
+.spellbar {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #183129f2;
+  border: 1px solid #b7bc9233;
+  border-radius: 15px;
+  padding: 11px;
+  box-shadow: 0 7px 25px #17261c4d;
+}
+.mana {
+  font-size: 18px;
+  width: 48px;
+  text-align: center;
+  color: #9bd0ce;
+}
+.mana small {
+  display: block;
+  font-size: 8px;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+#spells {
+  display: flex;
+  gap: 7px;
+}
+.spell {
+  width: 86px;
+  height: 63px;
+  padding: 6px;
+  font-size: 10px;
+  position: relative;
+}
+.spell strong {
+  font-size: 19px;
+  display: block;
+  color: #e0c88c;
+  margin: 0 0 3px;
+}
+.spell small {
+  display: block;
+  color: #b6c7b4;
+  font-size: 8px;
+  margin-top: 3px;
+}
+.bottom-note {
+  position: absolute;
+  bottom: 17px;
+  left: 28px;
+  right: 28px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #e4e7ce;
+  text-shadow: 0 1px 3px #193323;
+}
+.bottom-note span {
+  letter-spacing: 0.2px;
+}
+#toast {
+  position: absolute;
+  bottom: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #f4edda;
+  color: #284034;
+  max-width: 85%;
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-size: 12px;
+  box-shadow: 0 4px 20px #1a2d3c30;
+  pointer-events: none;
+}
+#toast:empty {
+  display: none;
+}
+dialog {
+  border: 1px solid #748368;
+  border-radius: 20px;
+  background: #213b31;
+  color: #f4efdf;
+  max-width: 760px;
+  width: 90%;
+  padding: 36px;
+}
+dialog::backdrop {
+  background: #10251ce0;
+  backdrop-filter: blur(8px);
+}
+dialog h1 {
+  font-size: 44px;
+  line-height: 1.15;
+  margin: 12px 0;
+}
+dialog p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #bdcbb9;
+}
+.guide-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 25px;
+}
+.guide-grid h3 {
+  color: #dfc18b;
+  margin-bottom: 0;
+}
+.close {
+  float: right;
+}
+.primary {
+  background: #ddc58e;
+  color: #20382e;
+  font-weight: 700;
+}
+#paused {
+  position: fixed;
+  inset: 100px 0 0;
+  background: #10251cdc;
+  backdrop-filter: blur(10px);
+  z-index: 8;
+  text-align: center;
+  padding-top: 20vh;
+}
+#paused h1 {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+[hidden] {
+  display: none !important;
+}
+.movement {
+  display: none;
+}
+@media (max-width: 1050px) {
+  header {
+    gap: 16px;
+    padding: 15px 20px;
+  }
+  .resources {
+    gap: 12px;
+    font-size: 10px;
+  }
+  .quests,
+  .selection {
+    width: 205px;
+    padding: 15px;
+  }
+  .brand {
+    font-size: 18px;
+  }
+  .progress {
+    min-width: 110px;
+  }
+  .quests {
+    left: 16px;
+  }
+  .selection {
+    right: 16px;
+  }
+}
+@media (max-width: 750px) {
+  header {
+    height: 110px;
+    flex-wrap: wrap;
+    padding: 12px 15px;
+    gap: 10px;
+  }
+  .brand {
+    font-size: 17px;
+  }
+  .brand small {
+    font-size: 7px;
+    letter-spacing: 2px;
+    margin-top: 5px;
+  }
+  .progress {
+    margin-left: auto;
+    max-width: 140px;
+  }
+  .resources {
+    order: 3;
+    width: 55%;
+    font-size: 10px;
+    gap: 12px;
+  }
+  nav {
+    order: 4;
+    gap: 4px;
+  }
+  nav button {
+    font-size: 9px;
+    padding: 6px;
+  }
+  .play-area {
+    height: calc(100dvh - 110px);
+    min-height: 620px;
+  }
+  .location {
+    left: 14px;
+    top: 14px;
+    font-size: 8px;
+  }
+  .quests {
+    top: 57px;
+    left: 12px;
+    width: 155px;
+    padding: 12px;
+  }
+  .quests h2 {
+    font-size: 18px;
+  }
+  .quests p:not(.eyebrow) {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .eyebrow {
+    font-size: 7px;
+  }
+  .selection {
+    right: 12px;
+    top: 57px;
+    width: 164px;
+    padding: 12px;
+  }
+  .selection h2 {
+    font-size: 20px;
+  }
+  .selection p:not(.eyebrow) {
+    font-size: 10px;
+  }
+  .selection button {
+    font-size: 10px;
+    padding: 7px;
+    margin-right: 0;
+  }
+  .meter {
+    grid-template-columns: 42px 1fr 24px;
+    font-size: 8px;
+    gap: 4px;
+  }
+  .spellbar {
+    bottom: 39px;
+    padding: 7px;
+    gap: 5px;
+  }
+  .spell {
+    width: 63px;
+    height: 57px;
+    font-size: 8px;
+  }
+  .spell strong {
+    font-size: 17px;
+  }
+  .mana {
+    width: 31px;
+    font-size: 15px;
+  }
+  .mana small {
+    font-size: 6px;
+  }
+  .bottom-note {
+    font-size: 6px;
+    left: 12px;
+    right: 12px;
+    letter-spacing: 1px;
+    bottom: 13px;
+  }
+  .movement {
+    display: grid;
+    position: absolute;
+    bottom: 123px;
+    left: 14px;
+    grid-template-columns: repeat(3, 35px);
+    gap: 3px;
+  }
+  .movement button {
+    background: #1a382acc;
+    padding: 6px;
+    touch-action: none;
+  }
+  .movement button:first-child {
+    grid-column: 2;
+  }
+  .movement button:nth-child(2) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .movement button:nth-child(3) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .movement button:nth-child(4) {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  #toast {
+    bottom: 115px;
+    font-size: 10px;
+    width: max-content;
+    max-width: 90%;
+  }
+  dialog {
+    padding: 23px;
+  }
+  dialog h1 {
+    font-size: 34px;
+  }
+  .guide-grid {
+    gap: 8px 15px;
+  }
+  #paused {
+    top: 110px;
+  }
+}
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.shop-grid article {
+  background: #ffffff08;
+  border: 1px solid #ffffff18;
+  padding: 14px;
+  border-radius: 12px;
+}
+.shop-grid h3 {
+  margin: 0;
+}
+.shop-grid button {
+  font-size: 11px;
+  padding: 8px;
+}
+.store-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+.store-tabs button[aria-pressed="true"] {
+  background: #dcc58c;
+  color: #20382e;
+}
+#attack {
+  height: 63px;
+  color: #e6c383;
+}
+#attack small {
+  display: block;
+  font-size: 8px;
+  margin-top: 5px;
+}
+@media (max-width: 750px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+  .spell {
+    width: 49px;
+  }
+  .spellbar {
+    gap: 3px;
+  }
+  #spells {
+    gap: 3px;
+  }
+  #attack {
+    width: 44px;
+    padding: 4px;
+  }
+  .resources {
+    width: 52%;
+    gap: 6px;
+  }
+  .progress {
+    min-width: 100px;
+  }
+  nav button {
+    font-size: 8px;
+    padding: 5px;
+  }
+  .location small {
+    font-size: 8px;
+  }
+  .store-tabs button {
+    font-size: 10px;
+  }
+}

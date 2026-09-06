@@ -1,0 +1,394 @@
+import { setupSettlement } from "./settlement-ui.js";
+import "./style.css";
+import { World, SPELLS, xpFor, CAPACITY, CROPS, BUILDINGS } from "./world.js";
+import { Renderer } from "./render.js";
+import { patchMarkup } from './dom.js';
+const $ = (id) => document.getElementById(id),
+  world = new World(),
+  canvas = $("world"),
+  renderer = new Renderer(canvas),
+  keys = new Set(),
+  SAVE = "from-cow-to-beef:v1";
+let paused = false,
+  target = null,
+  last = performance.now(),
+  saveTimer = 0,
+  uiTimer = 0,
+  selectionMarkup = "",
+  marketId = null,
+  buildMode = null;
+const audio = new Audio("/audio/farm-rpg-fusion.mp3");
+audio.loop = true;
+audio.volume = 0.25;
+let sound = false;
+let restored = false;
+try {
+  const raw = localStorage.getItem(SAVE);
+  if (raw) restored = world.load(raw);
+} catch {}
+const escape = (s) =>
+  String(s).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+function save() {
+  try {
+    localStorage.setItem(SAVE, world.save());
+    $("save-state").textContent = "Saved on this browser";
+  } catch {
+    $("save-state").textContent = "Storage unavailable · keep this tab open";
+  }
+}
+function setPause(value) {
+  paused = value;
+  keys.clear();
+  $("paused").hidden = !value;
+  $("pause").textContent = value ? "Resume" : "Pause";
+  if (value) audio.pause();
+  else if (sound) audio.play().catch(() => {});
+  save();
+}
+setupSettlement(world, {
+  save,
+  onBuild: (type) => {
+    buildMode = type;
+    canvas.style.cursor = "crosshair";
+  },
+});
+$("pause").onclick = () => setPause(!paused);
+$("resume").onclick = () => setPause(false);
+$("sound").onclick = async () => {
+  sound = !sound;
+  if (sound) {
+    try {
+      await audio.play();
+    } catch {
+      sound = false;
+      world.notify("Audio could not start. Try again.");
+    }
+  } else audio.pause();
+  $("sound").textContent = sound ? "Sound on" : "Sound off";
+  $("sound").setAttribute("aria-pressed", String(sound));
+};
+$("help").onclick = () => {
+  $("guide").showModal();
+  keys.clear();
+};
+document
+  .querySelectorAll("[data-close]")
+  .forEach((b) => (b.onclick = () => b.closest("dialog").close()));
+if (!restored) $("guide").showModal();
+window.addEventListener("keydown", (e) => {
+  if (
+    document.querySelector("dialog[open]") ||
+    /INPUT|TEXTAREA|BUTTON/.test(e.target.tagName)
+  )
+    return;
+  if (
+    ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(
+      e.code,
+    )
+  )
+    e.preventDefault();
+  keys.add(e.code);
+  target = null;
+  if (e.code === "KeyF" && !paused) world.attack();
+  if (!e.repeat && /^Digit[1-4]$/.test(e.code))
+    world.cast(Object.keys(SPELLS)[Number(e.code.at(-1)) - 1]);
+  if (e.code === "Escape") {
+    if (buildMode) {
+      buildMode = null;
+      canvas.style.cursor = "";
+    } else setPause(!paused);
+  }
+});
+window.addEventListener("keyup", (e) => keys.delete(e.code));
+window.addEventListener("blur", () => {
+  keys.clear();
+  save();
+});
+document.addEventListener("visibilitychange", () => {
+  keys.clear();
+  if (document.hidden) {
+    audio.pause();
+    save();
+  } else if (sound && !paused) audio.play().catch(() => {});
+  last = performance.now();
+});
+for (const b of document.querySelectorAll("[data-dir]")) {
+  const code = {
+    up: "ArrowUp",
+    down: "ArrowDown",
+    left: "ArrowLeft",
+    right: "ArrowRight",
+  }[b.dataset.dir];
+  b.onpointerdown = (e) => {
+    b.setPointerCapture(e.pointerId);
+    keys.add(code);
+    target = null;
+  };
+  b.onpointerup = b.onpointercancel = () => keys.delete(code);
+}
+canvas.onpointerdown = (e) => {
+  if (paused) return;
+  const r = canvas.getBoundingClientRect(),
+    p = renderer.point(e.clientX - r.left, e.clientY - r.top),
+    s = world.state;
+  if (buildMode) {
+    if (world.build(buildMode, p.x, p.y)) {
+      buildMode = null;
+      canvas.style.cursor = "";
+      save();
+    }
+    return;
+  }
+  target = {
+    x: Math.max(220, Math.min(1450, p.x)),
+    y: Math.max(405, Math.min(950, p.y)),
+  };
+  const cropHit = s.crops.find((a) => Math.hypot(a.x - p.x, a.y - p.y) < 35);
+  if (cropHit) {
+    s.selected = `crop-${cropHit.id}`;
+    selectionMarkup = "";
+    return;
+  }
+  const nearest = [...s.cows, ...s.animals, ...s.npcs, ...s.buildings]
+    .map((a) => ({ a, d: Math.hypot(a.x - p.x, a.y - 20 - p.y) }))
+    .sort((a, b) => a.d - b.d)[0];
+  if (nearest && nearest.d < 55) {
+    s.selected = nearest.a.id;
+    target = { x: nearest.a.x - 65, y: nearest.a.y + 40 };
+  } else {
+    const crop = s.crops.find((a) => Math.hypot(a.x - p.x, a.y - p.y) < 35);
+    s.selected = crop ? `crop-${crop.id}` : null;
+  }
+  selectionMarkup = "";
+};
+$("spells").innerHTML = Object.entries(SPELLS)
+  .map(
+    ([id, s], i) =>
+      `<button class="spell" data-spell="${id}" title="${s.description}"><strong>${["☂", "❄", "✿", "✦"][i]}</strong>${s.name}<small id="spell-${id}"></small></button>`,
+  )
+  .join("");
+$("spells").onclick = (e) => {
+  const b = e.target.closest("[data-spell]");
+  if (b && !paused && !document.querySelector("dialog[open]"))
+    world.cast(b.dataset.spell);
+};
+$("selection").onclick = (e) => {
+  const b = e.target.closest("[data-action]");
+  if (!b || paused) return;
+  const s = world.state,
+    a = b.dataset.action;
+  if (a === "feed" || a === "water") world.care(s.selected, a);
+  if (a === "robot") world.requestVet(s.selected);
+  if (a === "harvest") world.harvest(Number(s.selected.split("-")[1]));
+  if (a.startsWith("plant:"))
+    world.plant(Number(s.selected.split("-")[1]), a.split(":")[1]);
+  if (a === "repair") world.repair(s.selected);
+  if (a === "market") {
+    marketId = s.selected;
+    $("choice").showModal();
+  }
+  selectionMarkup = "";
+  save();
+};
+$("confirm-market").onclick = () => {
+  world.market(marketId);
+  $("choice").close();
+  selectionMarkup = "";
+  save();
+};
+const quests = [
+  {
+    id: "harvest",
+    title: "Something worth growing",
+    text: "Harvest two golden clover plots. Your herd will thank you.",
+    value: (s) => s.harvests,
+    goal: 2,
+    reward: 50,
+  },
+  {
+    id: "care",
+    title: "A little kindness",
+    text: "Feed or water animals six times. Build a thriving home.",
+    value: (s) => s.care,
+    goal: 6,
+    reward: 80,
+  },
+  {
+    id: "adult",
+    title: "Room to grow",
+    text: "Nurture a cow until she reaches adulthood.",
+    value: (s) => (s.cows.some((c) => c.growth >= 100) ? 1 : 0),
+    goal: 1,
+    reward: 80,
+  },
+  {
+    id: "birth",
+    title: "A new beginning",
+    text: "Select a healthy adult cow and call the breeding robot. Welcome your first calf.",
+    value: (s) => s.births,
+    goal: 1,
+    reward: 120,
+  },
+  {
+    id: "herd",
+    title: "A flourishing herd",
+    text: "Grow your family to five cows. Every expected calf has a reserved place.",
+    value: (s) => s.cows.length,
+    goal: 5,
+    reward: 180,
+  },
+];
+$("claim").onclick = () => {
+  const q = quests.find((q) => !world.state.completed.includes(q.id));
+  if (q && q.value(world.state) >= q.goal) {
+    world.state.completed.push(q.id);
+    world.award(q.reward);
+    world.state.coins += 30;
+    world.notify(`Chapter complete · +${q.reward} XP and 30 coins`);
+    save();
+  }
+};
+function ui() {
+  const s = world.state,
+    level = world.level;
+  $("level").textContent =
+    `LEVEL ${level} · ${level < 3 ? "FIELDKEEPER" : level < 5 ? "HERD GUARDIAN" : "VALLEY STEWARD"}`;
+  const progress = s.xp - xpFor(level),
+    needed = xpFor(level + 1) - xpFor(level);
+  $("xp").textContent = `${progress} / ${needed} XP to next level`;
+  $("xp-fill").style.width = `${(progress / needed) * 100}%`;
+  $("coins").textContent = `◈ ${s.coins} coins`;
+  $("feed").textContent = `♧ ${s.food} feed`;
+  $("herd").textContent =
+    `${s.cows.length}/${CAPACITY} cows · ${world.population} residents`;
+  $("mana").textContent = Math.floor(s.mana);
+  $("day").textContent =
+    `Day ${Math.floor(s.time / 240) + 1} · ${s.time % 240 < 120 ? "Golden morning" : "Quiet afternoon"} · Threat ${world.threat} · wave in ${Math.ceil(s.nextWave - s.time)}s`;
+  $("toast").textContent = s.notices[0]?.text || "";
+  for (const [id, spec] of Object.entries(SPELLS)) {
+    const remaining = Math.max(0, Math.ceil((s.cooldowns[id] || 0) - s.time)),
+      b = document.querySelector(`[data-spell="${id}"]`);
+    b.disabled = level < spec.level || remaining > 0 || s.mana < spec.mana;
+    $(`spell-${id}`).textContent =
+      level < spec.level
+        ? `LEVEL ${spec.level}`
+        : remaining
+          ? `${remaining}s`
+          : `${spec.mana} MANA`;
+  }
+  const q = quests.find((q) => !s.completed.includes(q.id));
+  $("quest-title").textContent = q?.title || "This is your valley";
+  $("quest-description").textContent =
+    q?.text ||
+    "Keep growing, care for your herd and discover your own rhythm. All chapters complete.";
+  $("quest-progress").textContent = q
+    ? `${Math.min(q.goal, q.value(s))} / ${q.goal}`
+    : "A flourishing farm";
+  $("claim").hidden = !q || q.value(s) < q.goal;
+  const animal = [...s.cows, ...s.animals].find((c) => c.id === s.selected),
+    npc = s.npcs.find((n) => n.id === s.selected),
+    crop = s.selected?.startsWith("crop-")
+      ? s.crops[Number(s.selected.split("-")[1])]
+      : null;
+  const meter = (label, value) =>
+    `<div class="meter"><span>${label}</span><i><b style="width:${Math.round(value)}%"></b></i><em>${Math.round(value)}</em></div>`;
+  let html =
+    '<p class="eyebrow">WELCOME HOME</p><h2>Your own pace.</h2><p>Click an animal to meet it. Click the garden to grow something good.</p><small>WASD / arrows to walk · Click to explore</small>';
+  if (animal) {
+    html = `<p class="eyebrow">${animal.kind === "cow" ? (animal.growth >= 100 ? "ADULT COW" : "GROWING CALF") : escape(animal.kind.toUpperCase())}</p><h2>${escape(animal.name || { dog: "Scout", sheep: "Woolly", chicken: "Pip" }[animal.kind])}</h2><p>${escape(animal.intent)}</p>${meter("Food", animal.hunger)}${meter("Water", animal.thirst)}${animal.kind === "cow" ? meter("Growth", animal.growth) + meter("Health", animal.health) : ""}<button data-action="feed">Feed · 1 clover</button><button data-action="water">Give water</button>`;
+    if (animal.kind === "cow")
+      html +=
+        animal.pregnancy !== null
+          ? `<p>Expecting a calf · ${Math.ceil(100 - animal.pregnancy)}s</p>`
+          : animal.vetRequested
+            ? "<p>B.O.V.I. is on the way.</p>"
+            : animal.rest > 0
+              ? "<p>Resting after birth.</p>"
+              : `<button data-action="robot" ${animal.growth < 100 ? "disabled" : ""}>Call robot · 25 coins</button><small>Artificial insemination · ${world.reserved}/20 slots reserved</small>`;
+    if (
+      animal.kind === "cow" &&
+      animal.growth >= 100 &&
+      animal.pregnancy === null &&
+      !animal.vetRequested &&
+      s.cows.length > 1
+    )
+      html += '<button data-action="market">Optional market route</button>';
+  }
+  if (npc)
+    html = `<p class="eyebrow">${escape(npc.role)}</p><h2>${escape(npc.name)}</h2><p>${escape(npc.intent)}</p><small>${npc.id === "vet" ? "An autonomous breeding robot. Select a healthy adult cow and request artificial insemination." : npc.id === "farmer" ? "Mara seeks out the cows who need food or water most." : npc.id === "shepherd" ? "Eli follows threats and drives wolves away from the herd." : "Your growing community shares life in the valley. Visit Household in the General Store to continue your family story."}</small>`;
+  if (crop)
+    html = `<p class="eyebrow">${crop.type ? CROPS[crop.type].name.toUpperCase() : "EMPTY PLOT"}</p><h2>${!crop.type ? "Plant a beginning" : crop.growth >= 100 ? "Ready to gather" : "Good things take time"}</h2>${meter("Growth", crop.growth)}${meter("Water", crop.water)}${
+      crop.type
+        ? '<button data-action="harvest">' +
+          (crop.growth >= 100 ? "Harvest produce" : "Water this plot") +
+          "</button>"
+        : Object.entries(CROPS)
+            .map(
+              ([id, c]) =>
+                '<button data-action="plant:' +
+                id +
+                '" ' +
+                (s.seeds[id] < 1 ? "disabled" : "") +
+                ">Plant " +
+                c.name +
+                " · " +
+                s.seeds[id] +
+                " seeds</button>",
+            )
+            .join("")
+    }<p>Buy seeds and sell your harvest at General Store.</p>`;
+  const building = s.buildings.find((b) => b.id === s.selected);
+  if (building)
+    html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home."}</p>`;
+  if (html !== selectionMarkup) {
+    patchMarkup($("selection"), html);
+    selectionMarkup = html;
+  }
+}
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, 0.1);
+  last = now;
+  if (!paused && !document.hidden && !document.querySelector("dialog[open]")) {
+    const p = world.state.player;
+    let x =
+        Number(keys.has("KeyD") || keys.has("ArrowRight")) -
+        Number(keys.has("KeyA") || keys.has("ArrowLeft")),
+      y =
+        Number(keys.has("KeyS") || keys.has("ArrowDown")) -
+        Number(keys.has("KeyW") || keys.has("ArrowUp"));
+    const d = Math.hypot(x, y);
+    if (d) {
+      p.x = Math.max(220, Math.min(1450, p.x + (x / d) * 190 * dt));
+      p.y = Math.max(405, Math.min(950, p.y + (y / d) * 190 * dt));
+    } else if (target) {
+      world.moveTo(p, target, 190, dt);
+      if (Math.hypot(p.x - target.x, p.y - target.y) < 4) target = null;
+    }
+    world.tick(dt);
+    saveTimer += dt;
+    if (saveTimer > 5) {
+      save();
+      saveTimer = 0;
+    }
+  }
+  renderer.draw(world.state);
+  uiTimer += dt;
+  if (uiTimer > 0.15) {
+    ui();
+    uiTimer = 0;
+  }
+  requestAnimationFrame(frame);
+}
+$("attack").onclick = () => {
+  if (!paused) world.attack();
+};
+ui();
+requestAnimationFrame(frame);
+window.addEventListener("pagehide", save);
+if (import.meta.env.DEV) window.__farm = { world, renderer, ui };

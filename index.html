@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#182f2a" />
+    <meta
+      name="description"
+      content="From Cow to Beef: a playable farm RPG. Grow a herd, cast spells, help your neighbors and choose your own path."
+    />
+    <title>From Cow to Beef — A pastoral adventure</title>
+    <link rel="icon" href="/favicon.svg" />
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <a class="brand" href="/"
+          >FROM COW <span>TO BEEF</span><small>A PASTORAL ADVENTURE</small></a
+        >
+        <div class="progress">
+          <span id="level">LEVEL 1 · FIELDKEEPER</span>
+          <div class="track"><i id="xp-fill"></i></div>
+          <small id="xp"></small>
+        </div>
+        <div class="resources">
+          <span id="coins"></span><span id="feed"></span><span id="herd"></span>
+        </div>
+        <nav>
+          <button id="shop-open">General Store</button
+          ><button id="sound" aria-pressed="false">Sound off</button
+          ><button id="pause">Pause</button><button id="help">Guide</button>
+        </nav>
+      </header>
+      <section class="play-area">
+        <canvas
+          id="world"
+          role="img"
+          aria-label="An interactive farm. Move with WASD or arrows, click an animal or garden plot to approach and select it. Use the action panel to care, harvest and call the breeding robot."
+        ></canvas>
+        <div class="location">
+          <span class="dot"></span> WILLOWBROOK VALLEY <small id="day"></small>
+        </div>
+        <aside class="quests">
+          <p class="eyebrow">YOUR NEXT CHAPTER</p>
+          <h2 id="quest-title"></h2>
+          <p id="quest-description"></p>
+          <div id="quest-progress"></div>
+          <button id="claim" hidden>Collect reward</button>
+        </aside>
+        <aside class="selection" id="selection">
+          <p class="eyebrow">WELCOME HOME</p>
+          <h2>Your own pace.</h2>
+          <p>
+            Click an animal to meet it. Click the garden to grow something good.
+          </p>
+          <small>WASD / arrows to walk · Click to explore</small>
+        </aside>
+        <div id="toast" role="status" aria-live="polite"></div>
+        <div class="spellbar">
+          <div class="mana"><b id="mana"></b><small>MANA</small></div>
+          <div id="spells"></div>
+          <button id="attack" title="Attack nearby wolves · F">
+            ⚔<small>ATTACK · F</small>
+          </button>
+        </div>
+        <div class="movement" aria-label="Touch movement">
+          <button data-dir="up" aria-label="Move up">↑</button
+          ><button data-dir="left" aria-label="Move left">←</button
+          ><button data-dir="down" aria-label="Move down">↓</button
+          ><button data-dir="right" aria-label="Move right">→</button>
+        </div>
+        <div class="bottom-note">
+          CARE · CULTIVATE · CHOOSE
+          <span id="save-state">Saved on this browser</span>
+        </div>
+      </section>
+      <dialog id="guide">
+        <button class="close" data-close aria-label="Close guide">×</button>
+        <p class="eyebrow">THE FIELD GUIDE</p>
+        <h1>Make a life in<br />Willowbrook.</h1>
+        <p>
+          This is your farm, at your pace. Earn experience by caring for
+          animals, harvesting clover and helping the herd grow. Processing a cow
+          is always optional.
+        </p>
+        <div class="guide-grid">
+          <article>
+            <h3>01 / Explore</h3>
+            <p>
+              WASD or arrows to walk. Click or tap the ground to travel. Select
+              an animal or a golden garden plot to see its actions.
+            </p>
+          </article>
+          <article>
+            <h3>02 / Nurture</h3>
+            <p>
+              Feed and water your animals. Mara helps those most in need. Eli
+              and your dog watch for wolves. Harvest clover, then sell it or turn
+              it into feed in the General Store.
+            </p>
+          </article>
+          <article>
+            <h3>03 / Grow</h3>
+            <p>
+              Invite B.O.V.I. to a healthy adult cow for 25 coins. The robot
+              performs artificial insemination, starting a 100-second pregnancy.
+              Cows and reserved calf slots share a limit of 20.
+            </p>
+          </article>
+          <article>
+            <h3>04 / Discover</h3>
+            <p>
+              Levels unlock rain, frost, growth and fire magic. Keys 1–4 cast
+              spells. Each spell has its own mana cost and cooldown.
+            </p>
+          </article>
+          <article><h3>05 / Settle</h3><p>Buy seeds, cottages, barns and walls in the General Store. Choose a structure, then click open ground to place it. Escape cancels. A larger settlement attracts more wolves; equip weapons and press F or Attack to defend it.</p></article>
+          <article><h3>06 / Belong</h3><p>Build a cottage to invite an adult companion. Shared meals grow your bond. At level 3 and bond 100, you can begin an optional family chapter.</p></article>
+        </div>
+        <p>
+          Your farm saves locally every five seconds. Time stops while paused or
+          away. Sound starts only when you choose it.
+        </p>
+        <button class="primary" data-close>Back to the pasture</button>
+      </dialog>
+      <dialog id="shop">
+        <button class="close" data-close aria-label="Close shop">×</button>
+        <p class="eyebrow">GENERAL STORE</p>
+        <h1>Grow your tomorrow.</h1>
+        <p id="shop-balance"></p>
+        <div id="shop-content"></div>
+        <p>
+          All prices use coins earned in this game. No real-money purchases.
+        </p>
+      </dialog>
+      <dialog id="choice">
+        <p class="eyebrow">YOUR FARM, YOUR CHOICE</p>
+        <h2>Send this cow to market?</h2>
+        <p>
+          This optional, non-graphic route permanently removes the selected
+          adult cow from your herd and rewards 70 coins and 25 XP. You can
+          progress entirely through care instead.
+        </p>
+        <button id="confirm-market">Confirm market delivery</button
+        ><button data-close>Keep my cow</button>
+      </dialog>
+      <div id="paused" hidden>
+        <h1>Take a breath.</h1>
+        <p>Your pasture can wait.</p>
+        <button id="resume">Return to the farm</button>
+      </div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
