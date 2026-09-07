@@ -594,10 +594,18 @@ dialog p {
   }
   .spellbar {
     gap: 3px;
+    width: calc(100% - 16px);
+    box-sizing: border-box;
   }
   #spells {
     gap: 3px;
+    overflow-x: auto;
+    min-width: 0;
+    flex: 1;
+    padding-bottom: 4px;
   }
+  #spells .spell { flex: 0 0 52px; }
+  .spellbar .mana, .spellbar #attack { flex-shrink: 0; }
   #attack {
     width: 44px;
     padding: 4px;

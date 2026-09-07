@@ -1,3 +1,4 @@
+import {tickTeamwork} from './teamwork.js';
 import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
 // Generous corruption guards, far beyond normal play; these are not gameplay limits.
 const ANIMAL_SAFETY_GUARD = 5000;
@@ -605,37 +606,23 @@ export class World {
       return this.notify("This spell is still recharging.");
     if (s.mana < spec.mana)
       return this.notify("Give your mana a moment to recover.");
-    s.mana -= spec.mana;
-    s.cooldowns[spell] = s.time + spec.cooldown;
-    s.effects.push({
-      kind: spell,
-      x: s.player.x,
-      y: s.player.y,
-      until: s.time + 2,
-    });
-    if (spell === "rain") {
-      for (const c of [...s.cows, ...s.animals])
-        if (distance(c, s.player) < 320)
-          c.thirst = Math.min(100, c.thirst + 35);
-      for (const c of s.crops) c.water = 100;
+    const enemies=s.wolves.filter(w=>!w.dead&&!w.retreat&&distance(w,s.player)<=320).sort((a,b)=>distance(a,s.player)-distance(b,s.player));
+    if(['fire','lightning'].includes(spell)&&!enemies.length)return this.notify('No enemy within spell range.');
+    s.mana-=spec.mana;s.cooldowns[spell]=s.time+spec.cooldown;
+    const source={x:s.player.x+22,y:s.player.y-30};
+    const effect=(kind,t)=>s.effects.push({kind,x:t.x,y:t.y,start:s.time,until:s.time+1.5});
+    if(spell==='fire'){const target=enemies[0];target.id??=this.id();s.projectiles.push({...source,kind:'fireball',source:{...source},target:target.id,start:s.time,power:4,stun:0,speed:420});}
+    if(spell==='lightning')for(const w of enemies.slice(0,4)){this.damageEnemy(w,4);s.effects.push({kind:'electric',...source,exactOrigin:true,tx:w.x,ty:w.y-20,start:s.time,until:s.time+.5});}
+    if(spell==='frost')s.effects.push({kind:'frost-wave',x:s.player.x,y:s.player.y,start:s.time,until:s.time+1,hit:[]});
+    if(spell==='rain'){
+      for(const a of [...s.cows,...s.animals])if(distance(a,s.player)<320){a.thirst=Math.min(100,a.thirst+35);effect('rain-target',a);}
+      for(const p of s.crops){p.water=100;effect('rain-target',p);}
     }
-    if (spell === "bloom") {
-      for (const c of s.crops) c.growth = Math.min(100, c.growth + 35);
-      for (const c of s.cows)
-        if (distance(c, s.player) < 320)
-          c.growth = Math.min(100, c.growth + 12);
-    }
-    if(spell==='lightning'){
-      for(const w of s.wolves.filter(w=>!w.retreat).sort((a,b)=>distance(a,s.player)-distance(b,s.player)).slice(0,4)){this.damageEnemy(w,4);s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:w.x,ty:w.y,until:s.time+.5});}
+    if(spell==='bloom'){
+      for(const p of s.crops)if(p.type){p.growth=Math.min(100,p.growth+35);effect('bloom-target',p);}
+      for(const a of s.cows)if(distance(a,s.player)<320){a.growth=Math.min(100,a.growth+12);effect('bloom-target',a);}
     }
     if(spell==='sanctuary')s.sanctuaryUntil=s.time+12;
-    for (const w of s.wolves)
-      if (distance(w, s.player) < 320) {
-        if (spell === "frost") w.frozen = 6;
-        if (spell === "fire") {
-          this.damageEnemy(w,4);
-        }
-      }
     return this.notify(spec.name);
   }
   moveTo(actor, target, speed, dt) {
@@ -655,12 +642,16 @@ export class World {
       if(!target){arrow.done=true;continue;}
       const aim={x:target.x,y:target.y-20};
       arrow.angle=Math.atan2(aim.y-arrow.y,aim.x-arrow.x);
-      this.moveTo(arrow,aim,520,dt);
+      this.moveTo(arrow,aim,arrow.speed||520,dt);
       if(distance(arrow,aim)<8){
-        this.damageEnemy(target,arrow.power);target.frozen=Math.max(target.frozen||0,arrow.stun);
+        this.damageEnemy(target,arrow.power);if(arrow.kind==='fireball')s.effects.push({kind:'explosion',x:target.x,y:target.y-20,start:s.time,until:s.time+.6});target.frozen=Math.max(target.frozen||0,arrow.stun);
         if(arrow.chain)for(const other of s.wolves.filter(w=>w!==target&&!w.dead&&distance(w,target)<arrow.chain))this.damageEnemy(other,1.5);
         arrow.done=true;
       }
+    }
+    for(const wave of s.effects.filter(e=>e.kind==='frost-wave')){
+      const radius=Math.min(320,(s.time-wave.start)*320);
+      for(const w of s.wolves)if(!w.dead&&!wave.hit.includes(w)&&distance(w,wave)<=radius){w.frozen=6+dt;wave.hit.push(w);}
     }
     s.projectiles=s.projectiles.filter(a=>!a.done);
     s.wolves=s.wolves.filter(w=>!w.dead);
@@ -830,38 +821,7 @@ export class World {
         s.nextSheepBirth=s.time+150+this.random()*90;
       } else s.nextSheepBirth=s.time+30;
     }
-    for (const n of s.npcs.filter((n) => n.id.startsWith("resident-")||n.id==='partner'||n.id==='child')) {
-      n.timer -= dt;
-      const foe=s.wolves.find(w=>!w.retreat&&distance(w,n)<340);
-      if(foe){n.intent='Defending the settlement';this.moveTo(n,foe,n.role?.includes('Robot')?90:75,dt);if(distance(n,foe)<75&&n.timer<=0){this.damageEnemy(foe,n.role?.includes('Robot')?2:1.5);n.timer=n.role?.includes('Robot')?1.5:2;}continue;}
-      const needyAnimal=[...s.cows,...s.animals].find(a=>Math.min(a.hunger,a.thirst)<65);
-      const plot=s.crops.find(p=>p.water<75||(p.type&&p.growth>=100));
-      if(needyAnimal){
-        n.intent='Feeding and watering animals';this.moveTo(n,needyAnimal,70,dt);
-        if(distance(n,needyAnimal)<55&&n.timer<=0){needyAnimal.hunger=Math.min(100,needyAnimal.hunger+25);needyAnimal.thirst=Math.min(100,needyAnimal.thirst+25);n.timer=4;}continue;
-      }
-      if(plot){
-        n.intent='Tending the vegetable garden';this.moveTo(n,plot,65,dt);
-        if(distance(n,plot)<55&&n.timer<=0){plot.water=100;if(plot.type&&plot.growth>=100){s.produce[plot.type]=(s.produce[plot.type]||0)+CROPS[plot.type].yield;plot.growth=0;plot.type=null;s.harvests++;}n.timer=5;}continue;
-      }
-      const hurt = s.cows.find((c) => c.health < 70);
-      if (hurt) {
-        n.intent = `Sheltering ${hurt.name}`;
-        this.moveTo(n, hurt, 45, dt);
-        if (distance(n, hurt) < 50)
-          hurt.health = Math.min(100, hurt.health + dt);
-      } else {
-        n.intent = "Tending the settlement";
-        if (n.timer <= 0 || !n.goal) {
-          n.goal = {
-            x: 650 + this.random() * 500,
-            y: 500 + this.random() * 350,
-          };
-          n.timer = 8;
-        }
-        this.moveTo(n, n.goal, 20, dt);
-      }
-    }
+    tickTeamwork(this,dt,CROPS);
     tickEngineering(this,dt);
     for (const w of s.wolves) {
       if(w.dead)continue;

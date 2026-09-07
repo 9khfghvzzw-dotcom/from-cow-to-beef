@@ -70,9 +70,12 @@ test("spell unlocks, mana and cooldowns enforce distinct effects", () => {
   s.xp = 900;
   s.wolves.push({ x: s.player.x + 10, y: s.player.y, frozen: 0, retreat: 0 });
   w.cast("frost");
+  w.tick(.1);
   assert.equal(s.wolves[0].frozen, 6);
   w.cast("fire");
-  assert.equal(s.wolves[0].dead, true);
+  const target=s.wolves[0];
+  w.tick(.1);
+  assert.equal(target.dead, true);
 });
 test("farmer prioritizes an animal in need and shepherd responds to threats", () => {
   const w = new World({ random: () => 0.5 }),
