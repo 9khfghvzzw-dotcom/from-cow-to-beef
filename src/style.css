@@ -158,6 +158,8 @@ canvas {
 .selection {
   top: 25px;
   right: 28px;
+  max-height: 55vh;
+  overflow-y: auto;
 }
 .eyebrow {
   color: #d3b97e;
@@ -561,6 +563,9 @@ dialog p {
 #attack { min-width:66px; }
 #attack small { max-width:80px; white-space:normal; }
 .item-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; }
+.persuasion-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+#selection details { margin-top:12px; }
+#selection summary { cursor:pointer; color:#e6c383; }
 .store-feedback:not(:empty) { padding:12px 16px; background:#e0c88d; color:#20382e; border-radius:10px; }
 .shop-grid button {
   font-size: 11px;

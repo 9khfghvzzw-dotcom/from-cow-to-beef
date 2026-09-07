@@ -187,6 +187,8 @@ $("selection").onclick = (e) => {
   if (a === "feed" || a === "water") world.care(s.selected, a);
   if (a === "collect-eggs") world.collectEggs(s.selected);
   if (a === "collect-milk") world.collectMilk(s.selected);
+  if(a.startsWith('persuade:'))world.persuade(s.selected,a.split(':')[1]);
+  if(a.startsWith('talk:'))world.talk(s.selected,a.split(':')[1]);
   if (a === "robot") world.requestVet(s.selected);
   if (a === "harvest") world.harvest(Number(s.selected.split("-")[1]));
   if (a.startsWith("plant:"))
@@ -338,6 +340,8 @@ function ui() {
   }
   if (npc)
     html = `<p class="eyebrow">${escape(npc.role)}</p><h2>${escape(npc.name)}</h2><p>${escape(npc.intent)}</p><small>${npc.id === "vet" ? "An autonomous breeding robot. Select a healthy adult cow and request artificial insemination." : npc.id === "farmer" ? "Mara seeks out the cows who need food or water most." : npc.id === "shepherd" ? "Eli follows threats and drives wolves away from the herd." : "Your growing community shares life in the valley. Visit Household in the General Store to continue your family story."}</small>`;
+  if(npc)html+=`${meter('Happiness',npc.happiness??65)}${meter('Connection',npc.connection??0)}<small>${(npc.connection??0)>=60?'Close friend':(npc.connection??0)>=25?'Friend':'Getting acquainted'}</small><p>Talk to ${escape(npc.name)}</p><button data-action="talk:greet">“How are you?”</button><button data-action="talk:joke">Tell a friendly joke</button><button data-action="talk:farm">“How is the farm doing?”</button>`;
+  if(npc)html+=`<details><summary>Persuasion game</summary><p>Use each approach once. Strength rotates after every choice. Their reaction hints at what they like.</p><div class="persuasion-grid">${world.persuasionOptions(npc.id).map(o=>`<button data-action="persuade:${o.key}" ${o.used||(npc.persuasionReady??0)>s.time?'disabled':''}>${o.preference>1?'😊':o.preference>0?'🙂':o.preference===-1?'😕':'😠'} ${o.name}<br>Strength ${o.strength}/4</button>`).join('')}</div><small>${(npc.persuasionReady??0)>s.time?'Next round in '+Math.ceil(npc.persuasionReady-s.time)+'s':'Four choices per round · reactions differ for each citizen'}</small></details>`;
   if (crop)
     html = `<p class="eyebrow">${crop.type ? CROPS[crop.type].name.toUpperCase() : "EMPTY PLOT"}</p><h2>${!crop.type ? "Plant a beginning" : crop.growth >= 100 ? "Ready to gather" : "Good things take time"}</h2>${meter("Growth", crop.growth)}${meter("Water", crop.water)}${
       crop.type

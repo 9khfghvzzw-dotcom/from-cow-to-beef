@@ -16,6 +16,7 @@ export function patchMarkup(element, html) {
       }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       for (const attr of Array.from(current.attributes)) {
+        if(current.nodeName==='DETAILS'&&attr.name==='open')continue;
         if (!node.hasAttribute(attr.name)) current.removeAttribute(attr.name);
       }
       for (const attr of node.attributes) {

@@ -1,3 +1,4 @@
+import {drawFace} from './expressions.js';
 import { CROPS } from "./world.js";
 import {drawGuardian,drawTechnician} from './engineering-render.js';
 const TAU = Math.PI * 2;
@@ -269,7 +270,8 @@ export class Renderer {
       c.fillStyle = player ? "#556548" : "#a7925c";
       c.fillRect(-10, -66, 20, 9);
     }
-    if(!robot){c.fillStyle='#fff7df';c.fillRect(2,-52,5,4);c.fillStyle='#344338';c.fillRect(5,-52,2,4);c.fillStyle='#ce805e';c.fillRect(8,-46,3,3);c.fillStyle='#eec096';c.fillRect(12,-36,7,20);}
+    drawFace(c,n,time,robot);
+    if(!robot){c.fillStyle='#eec096';c.fillRect(12,-36,7,20);}
     if(player){
       const held=n.held;c.save();c.translate(22,-20);
       if(held==='watering_can'){c.fillStyle='#48b7d7';c.fillRect(-7,-8,18,17);this.path([[11,-4],[22,-10],[25,-5],[11,5]],'#91e8ed');}
@@ -529,6 +531,7 @@ export class Renderer {
       c.save();c.translate(arrow.x,arrow.y);c.rotate(arrow.angle||0);c.strokeStyle=arrow.color;c.lineWidth=3;c.beginPath();c.moveTo(-26,0);c.lineTo(8,0);c.stroke();c.fillStyle=arrow.color;c.beginPath();c.moveTo(12,0);c.lineTo(2,-5);c.lineTo(2,5);c.fill();c.beginPath();c.moveTo(-24,-5);c.lineTo(-18,0);c.lineTo(-24,5);c.stroke();c.restore();
     }
     for (const e of s.effects) {
+      if(e.kind==='speech'){if(e.startsAt>s.time||s.effects.filter(other=>other.kind==='speech'&&other.x===e.x&&other.y===e.y&&(!other.startsAt||other.startsAt<=s.time)).at(-1)!==e)continue;this.label(e.x,e.y,'♥  '+(e.text.length>48?e.text.slice(0,45)+'…':e.text));continue;}
       if(e.kind==='frost-wave'){c.save();c.strokeStyle='#a7edff';c.lineWidth=7;c.shadowColor='#79cfff';c.shadowBlur=15;c.beginPath();c.arc(e.x,e.y,Math.min(320,(s.time-e.start)*320),0,TAU);c.stroke();c.restore();continue;}
       if(e.kind==='explosion'){c.save();c.globalAlpha=Math.max(0,(e.until-s.time)/.6);this.ellipse(e.x,e.y,15+(s.time-e.start)*70,15+(s.time-e.start)*70,'#ff9545');c.restore();continue;}
       if(e.kind==='rain-target'||e.kind==='bloom-target'){c.save();const t=s.time-e.start;c.strokeStyle=e.kind==='rain-target'?'#74d6ff':'#8af58e';c.lineWidth=3;for(let i=0;i<5;i++){const x=e.x-20+i*10,y=e.y-50+((t*55+i*11)%45);c.beginPath();c.moveTo(x,y);c.lineTo(x+(e.kind==='rain-target'?-3:6),y+9);c.stroke();}c.restore();continue;}

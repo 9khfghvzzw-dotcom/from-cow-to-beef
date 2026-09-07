@@ -277,6 +277,7 @@ export class World {
     return sheep;
   }
   notify(text) {
+    if(/harvest|Collected|born|Sold|complete/i.test(text)){this.state.player.expression='happy';this.state.player.expressionUntil=this.state.time+2;}
     this.state.notices.unshift({ text, until: this.state.time + 6 });
     this.state.notices.length = Math.min(4, this.state.notices.length);
     return text;
@@ -408,6 +409,7 @@ export class World {
       spec = WEAPONS[s.weapon];
     if (s.time - s.lastAttack < spec.cooldown) return;
     s.lastAttack = s.time;
+    s.player.expression='determined';s.player.expressionUntil=s.time+1;
     s.effects.push({
       kind: "attack",
       x: s.player.x,
@@ -608,6 +610,7 @@ export class World {
       return this.notify("Give your mana a moment to recover.");
     const enemies=s.wolves.filter(w=>!w.dead&&!w.retreat&&distance(w,s.player)<=320).sort((a,b)=>distance(a,s.player)-distance(b,s.player));
     if(['fire','lightning'].includes(spell)&&!enemies.length)return this.notify('No enemy within spell range.');
+    s.player.expression='focused';s.player.expressionUntil=s.time+1.5;
     s.mana-=spec.mana;s.cooldowns[spell]=s.time+spec.cooldown;
     const source={x:s.player.x+22,y:s.player.y-30};
     const effect=(kind,t)=>s.effects.push({kind,x:t.x,y:t.y,start:s.time,until:s.time+1.5});
@@ -625,6 +628,51 @@ export class World {
     if(spell==='sanctuary')s.sanctuaryUntil=s.time+12;
     return this.notify(spec.name);
   }
+  persuasionOptions(id){
+    const n=this.state.npcs.find(n=>n.id===id);if(!n)return [];
+    const hash=[...n.id].reduce((sum,c)=>sum+c.charCodeAt(0),0),used=n.persuasionUsed||[];
+    return ['admire','joke','boast','intimidate'].map((key,i)=>({key,name:['Admire','Joke','Boast','Intimidate'][i],strength:1+(i+used.length)%4,preference:this.socialPreference(n,key,[2,1,-1,-2][(i+hash)%4]),used:used.includes(key)}));
+  }
+  socialPreference(n,key,base){
+    const threatened=this.state.wolves.some(w=>!w.dead&&!w.retreat&&distance(w,n)<340);
+    if(threatened&&['joke','boast'].includes(key))return -2;
+    if(key==='intimidate'&&(n.connection??0)>=60)return -2;
+    if(key==='admire'&&(n.happiness??65)<35)return Math.max(1,base);
+    return base;
+  }
+  rememberSocial(n,key){
+    n.socialMemory??={counts:{}};n.socialMemory.counts??={};
+    const repeats=n.socialMemory.lastChoice===key?n.socialMemory.streak||1:0;
+    n.socialMemory.counts[key]=(n.socialMemory.counts[key]||0)+1;n.socialMemory.lastChoice=key;n.socialMemory.streak=repeats+1;
+    return 1/(1+repeats*.5);
+  }
+  persuade(id,key){
+    const s=this.state,n=s.npcs.find(n=>n.id===id);if(!n)return;
+    if(distance(s.player,n)>180)return this.notify('Walk closer to persuade.');
+    if((n.persuasionReady??0)>s.time)return this.notify('Give this conversation a moment before another round.');
+    const option=this.persuasionOptions(id).find(o=>o.key===key&&!o.used);if(!option)return;
+    n.persuasionUsed??=[];n.persuasionUsed.push(key);
+    const familiarity=this.rememberSocial(n,key);const change=Math.round(option.preference*option.strength*(option.preference>0?familiarity:1));n.connection=Math.max(0,Math.min(100,(n.connection??0)+change));
+    n.happiness=Math.max(0,Math.min(100,(n.happiness??65)+change/2));n.expression=change>0?'happy':'determined';n.expressionUntil=s.time+3;
+    const line=change>0?'You know how to talk to me.':'That did not go down well.';
+    s.effects.push({kind:'speech',text:line,x:n.x,y:n.y-100,until:s.time+3});
+    this.notify(`${n.name}: ${line} Connection ${change>0?'+':''}${change}.`);
+    if(n.persuasionUsed.length===4){n.persuasionUsed=[];n.persuasionReady=s.time+20;}
+  }
+  talk(id,choice='greet'){
+    const s=this.state,n=s.npcs.find(n=>n.id===id);if(!n)return;
+    if(distance(s.player,n)>180)return this.notify('Walk closer to talk.');
+    if(s.time-(n.lastTalk??-100)<20)return this.notify(`${n.name}: Let's chat again in a little while.`);
+    if(!['greet','joke','farm'].includes(choice))return;
+    const familiarity=this.rememberSocial(n,choice);
+    const threatened=s.wolves.some(w=>!w.dead&&!w.retreat&&distance(w,n)<340);
+    n.connection=Math.max(0,Math.min(100,(n.connection??0)+(threatened&&choice==='joke'?-3:Math.round((choice==='joke'?6:choice==='farm'?2:4)*familiarity))));
+    n.lastTalk=s.time;n.happiness=Math.min(100,(n.happiness??65)+(choice==='joke'?15:choice==='farm'?6:12));s.player.happiness=Math.min(100,(s.player.happiness??65)+6);
+    n.expression='happy';n.expressionUntil=s.time+4;s.player.expression='happy';s.player.expressionUntil=s.time+4;
+    const text=threatened?'There are enemies nearby. Help us defend the farm first!':n.socialMemory.streak>=3?'We have talked about that a few times. Tell me something different.':choice==='greet'&&(n.connection??0)>=60?'My friend! I was hoping you would stop by.':choice==='joke'?'Ha! That was a good one. Even the sheep would laugh.':choice==='farm'?`I am ${n.intent||'watching the farm'}. We can do more when we help each other.`:n.happiness<40?'I am worried about the farm. Thank you for checking on me.':n.happiness>=80?'It is lovely living here with you!':'Thanks for stopping by. Working together makes this place feel like home.';
+    if(threatened){n.expression='determined';n.expressionUntil=s.time+4;}
+    s.effects.push({kind:'speech',text,x:n.x,y:n.y-100,until:s.time+4});this.notify(`${n.name}: ${text}`);
+  }
   moveTo(actor, target, speed, dt) {
     const d = distance(actor, target);
     if (d < 2) return;
@@ -636,6 +684,24 @@ export class World {
     dt = clamp(dt, 0, 0.25);
     const s = this.state;
     s.time += dt;
+    const animals=[...s.cows,...s.animals];
+    const wellbeing=animals.length?animals.reduce((sum,a)=>sum+(a.hunger+a.thirst)/2,0)/animals.length:70;
+    for(const n of [s.player,...s.npcs]){
+      n.happiness??=65;
+      const danger=s.wolves.some(w=>!w.dead&&!w.retreat&&distance(n,w)<340);
+      const social=s.time-(n.lastTalk??-100)<60?15:0;
+      const desired=Math.max(10,Math.min(95,wellbeing+social-(danger?45:0)));
+      n.happiness+=Math.max(-dt*.6,Math.min(dt*.35,(desired-n.happiness)*dt*.05));
+    }
+    const chatting=new Set();
+    for(const n of s.npcs.filter(n=>n.id!=='vet')){
+      if(chatting.has(n.id)||s.time-(n.lastSocial??0)<25||/Defend|Driving/.test(n.intent||''))continue;
+      const other=s.npcs.find(a=>a!==n&&a.id!=='vet'&&!chatting.has(a.id)&&s.time-(a.lastSocial??0)>=25&&distance(n,a)<100&&!/Defend|Driving/.test(a.intent||''));
+      if(!other)continue;
+      for(const a of [n,other]){chatting.add(a.id);a.lastSocial=s.time;a.happiness=Math.min(100,(a.happiness??65)+4);a.expression='happy';a.expressionUntil=s.time+4;}
+      s.effects.push({kind:'speech',text:`${other.name}, how is your day going?`,x:n.x,y:n.y-100,until:s.time+2});
+      s.effects.push({kind:'speech',text:'Better with good company!',x:other.x,y:other.y-100,startsAt:s.time+2,until:s.time+4});
+    }
     s.mana = Math.min(100, s.mana + dt * 3);
     for(const arrow of s.projectiles){
       const target=s.wolves.find(w=>w.id===arrow.target&&!w.dead);
