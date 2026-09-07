@@ -2,6 +2,7 @@ import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrate
 // Generous corruption guards, far beyond normal play; these are not gameplay limits.
 const ANIMAL_SAFETY_GUARD = 5000;
 const BUILDING_SAFETY_GUARD = 3000;
+export const LOOT = {fur:{name:'Wolf fur',price:12},fang:{name:'Dire wolf fang',price:24},essence:{name:'Vampire essence',price:40}};
 export const BUILDINGS = {
   house: { name: "Cottage", price: 75, size: 65, population: 3 },
   barn: { name: "Barn", price: 110, size: 75, population: 1 },
@@ -22,7 +23,7 @@ export const SPELL_SCROLLS = {
   sanctuary: { name: "Sanctuary shield", price: 160, level: 3, mana: 30, cooldown: 22, description: "Protect animals, people and buildings for 12 seconds." },
 };
 export const WEAPONS = {
-  shortsword: {name:'Short sword',price:0,range:110,power:1.5,cooldown:.65,description:'Your starting blade. Two quick hits repel a wolf.'},
+  shortsword: {name:'Short sword',price:0,range:110,power:1.5,cooldown:.65,description:'Your starting blade. Two quick hits defeat a wolf.'},
   spear: { name: 'Steel spear', price: 140, range: 210, power: 2, cooldown: .85, description: 'Long melee reach; keeps attackers at a distance.' },
   hammer: { name: 'Shockwave hammer', price: 210, range: 135, power: 3, cooldown: 1.6, splash: 100, description: 'Slow heavy strike that hits up to three nearby wolves.' },
   blaster: { name: 'Arc blaster', price: 300, range: 420, power: 1.5, cooldown: .8, stun: .45, description: 'Fast electric shots briefly stun a distant target.' },
@@ -145,6 +146,7 @@ export class World {
       cows: [],
       animals: [],
       wolves: [],
+      projectiles: [], lootDrops: [], loot: {},
       crops: [],
       npcs: [
         {
@@ -414,19 +416,43 @@ export class World {
     const enemy = s.wolves
       .filter((w) => !w.retreat && distance(w, s.player) < spec.range)
       .sort((a, b) => distance(a, s.player) - distance(b, s.player))[0];
-    if (!enemy) return this.notify("No wolf within weapon range.");
-    const targets=[enemy,...(spec.splash?s.wolves.filter(w=>w!==enemy&&!w.retreat&&distance(w,enemy)<=spec.splash&&distance(w,s.player)<=spec.range).slice(0,2):[])];
+    if (!enemy) return this.notify("No enemy within weapon range.");
     const ammo=s.weapon==='bow'&&s.specialAmmo?SPECIAL_AMMO[s.specialAmmo]:null;
+    if(s.weapon==='bow'){
+      enemy.id??=this.id();
+      s.projectiles.push({x:s.player.x+22,y:s.player.y-30,target:enemy.id,power:spec.power+(ammo?.power||0)+(ammo?.burn||0),stun:ammo?.stun||0,chain:ammo?.chain||0,color:s.specialAmmo==='fireArrow'?'#ff954b':s.specialAmmo==='iceArrow'?'#8eeaff':'#ffe1a0'});
+      return this.notify('Arrow fired!');
+    }
+    const targets=[enemy,...(spec.splash?s.wolves.filter(w=>w!==enemy&&!w.retreat&&distance(w,enemy)<=spec.splash&&distance(w,s.player)<=spec.range).slice(0,2):[])];
     for(const victim of targets){
-      victim.courage=(victim.courage??3)-spec.power-(ammo?.power||0);
-      if(spec.stun||ammo?.stun)victim.frozen=Math.max(victim.frozen||0,spec.stun||ammo.stun);
-      if(ammo?.burn)victim.courage-=ammo.burn;
+      this.damageEnemy(victim,spec.power);
+      if(spec.stun)victim.frozen=Math.max(victim.frozen||0,spec.stun);
       if(s.weapon==='blaster')s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:victim.x,ty:victim.y-20,until:s.time+.3});
       if(s.weapon==='cryo')s.effects.push({kind:'frost',x:victim.x,y:victim.y,until:s.time+1});
-      if(victim.courage<=0){victim.retreat=15;this.award(20);s.coins+=6;}
     }
-    this.notify(targets.some(w=>w.retreat)?`${spec.name} repelled ${targets.filter(w=>w.retreat).length} wolf/wolves · +6 gold and +20 XP each.`:`${spec.name} hit · keep the herd safe!`);
   }
+  damageEnemy(enemy,amount){
+    if(enemy.dead||amount<=0)return;
+    const s=this.state;
+    enemy.maxHealth??=enemy.type==='vampire'?10:enemy.type==='direwolf'?6:3;
+    enemy.health=Math.max(0,(enemy.health??enemy.courage??enemy.maxHealth)-amount);
+    enemy.courage=enemy.health;
+    s.effects.push({kind:'damage',amount,x:enemy.x,y:enemy.y-85,until:s.time+.8});
+    if(enemy.health===0){
+      enemy.dead=true;enemy.retreat=15;
+      const type=enemy.type==='vampire'?'essence':enemy.type==='direwolf'?'fang':'fur';
+      s.lootDrops.push({id:this.id(),type,x:enemy.x,y:enemy.y});
+      this.award(20);s.coins+=6;
+      this.notify(`Enemy defeated · +20 XP, +6 gold. Walk over the loot to collect ${LOOT[type].name}.`);
+    }
+  }
+  sellLoot(type){
+    const s=this.state,n=s.loot[type]||0;
+    if(!LOOT[type]||!n)return;
+    s.coins+=n*LOOT[type].price;s.loot[type]=0;
+    this.notify(`Sold ${n} ${LOOT[type].name} · +${n*LOOT[type].price} gold.`);
+  }
+
   build(type, x, y) {
     const spec = BUILDINGS[type],
       s = this.state;
@@ -600,15 +626,14 @@ export class World {
           c.growth = Math.min(100, c.growth + 12);
     }
     if(spell==='lightning'){
-      for(const w of s.wolves.filter(w=>!w.retreat).sort((a,b)=>distance(a,s.player)-distance(b,s.player)).slice(0,4)){w.courage=(w.courage??3)-4;if(w.courage<=0)w.retreat=15;s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:w.x,ty:w.y,until:s.time+.5});}
+      for(const w of s.wolves.filter(w=>!w.retreat).sort((a,b)=>distance(a,s.player)-distance(b,s.player)).slice(0,4)){this.damageEnemy(w,4);s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:w.x,ty:w.y,until:s.time+.5});}
     }
     if(spell==='sanctuary')s.sanctuaryUntil=s.time+12;
     for (const w of s.wolves)
       if (distance(w, s.player) < 320) {
         if (spell === "frost") w.frozen = 6;
         if (spell === "fire") {
-          w.retreat = 12;
-          this.award(8);
+          this.damageEnemy(w,4);
         }
       }
     return this.notify(spec.name);
@@ -625,6 +650,25 @@ export class World {
     const s = this.state;
     s.time += dt;
     s.mana = Math.min(100, s.mana + dt * 3);
+    for(const arrow of s.projectiles){
+      const target=s.wolves.find(w=>w.id===arrow.target&&!w.dead);
+      if(!target){arrow.done=true;continue;}
+      const aim={x:target.x,y:target.y-20};
+      arrow.angle=Math.atan2(aim.y-arrow.y,aim.x-arrow.x);
+      this.moveTo(arrow,aim,520,dt);
+      if(distance(arrow,aim)<8){
+        this.damageEnemy(target,arrow.power);target.frozen=Math.max(target.frozen||0,arrow.stun);
+        if(arrow.chain)for(const other of s.wolves.filter(w=>w!==target&&!w.dead&&distance(w,target)<arrow.chain))this.damageEnemy(other,1.5);
+        arrow.done=true;
+      }
+    }
+    s.projectiles=s.projectiles.filter(a=>!a.done);
+    s.wolves=s.wolves.filter(w=>!w.dead);
+    s.lootDrops=s.lootDrops.filter(drop=>{
+      if(distance(drop,s.player)>55)return true;
+      s.loot[drop.type]=(s.loot[drop.type]||0)+1;
+      this.notify(`Collected ${LOOT[drop.type].name} · sell at General Store → Monster loot.`);return false;
+    });
     s.effects = s.effects.filter((e) => e.until > s.time);
     s.notices = s.notices.filter((e) => e.until > s.time);
     for (const p of s.crops) {
@@ -720,7 +764,7 @@ export class World {
     shepherd.timer=Math.max(0,(shepherd.timer||0)-dt);
     if (danger) {
       this.moveTo(shepherd, danger, 60, dt);
-      if (distance(shepherd, danger) < 60 && shepherd.timer<=0) {danger.retreat = 3;shepherd.timer=12;}
+      if (distance(shepherd, danger) < 60 && shepherd.timer<=0) {this.damageEnemy(danger,1.5);danger.frozen=1;shepherd.timer=2;}
     }
     if (s.family.arrival !== null) {
       s.family.arrival -= dt;
@@ -788,8 +832,18 @@ export class World {
     }
     for (const n of s.npcs.filter((n) => n.id.startsWith("resident-")||n.id==='partner'||n.id==='child')) {
       n.timer -= dt;
-      const foe=s.wolves.find(w=>!w.retreat&&distance(w,n)<210);
-      if(foe){n.intent='Defending the settlement';this.moveTo(n,foe,n.role?.includes('Robot')?70:48,dt);if(distance(n,foe)<75&&n.timer<=0){foe.courage=(foe.courage??3)-(n.role?.includes('Robot')?2:1);if(foe.courage<=0)foe.retreat=10;n.timer=n.role?.includes('Robot')?2:5;}continue;}
+      const foe=s.wolves.find(w=>!w.retreat&&distance(w,n)<340);
+      if(foe){n.intent='Defending the settlement';this.moveTo(n,foe,n.role?.includes('Robot')?90:75,dt);if(distance(n,foe)<75&&n.timer<=0){this.damageEnemy(foe,n.role?.includes('Robot')?2:1.5);n.timer=n.role?.includes('Robot')?1.5:2;}continue;}
+      const needyAnimal=[...s.cows,...s.animals].find(a=>Math.min(a.hunger,a.thirst)<65);
+      const plot=s.crops.find(p=>p.water<75||(p.type&&p.growth>=100));
+      if(needyAnimal){
+        n.intent='Feeding and watering animals';this.moveTo(n,needyAnimal,70,dt);
+        if(distance(n,needyAnimal)<55&&n.timer<=0){needyAnimal.hunger=Math.min(100,needyAnimal.hunger+25);needyAnimal.thirst=Math.min(100,needyAnimal.thirst+25);n.timer=4;}continue;
+      }
+      if(plot){
+        n.intent='Tending the vegetable garden';this.moveTo(n,plot,65,dt);
+        if(distance(n,plot)<55&&n.timer<=0){plot.water=100;if(plot.type&&plot.growth>=100){s.produce[plot.type]=(s.produce[plot.type]||0)+CROPS[plot.type].yield;plot.growth=0;plot.type=null;s.harvests++;}n.timer=5;}continue;
+      }
       const hurt = s.cows.find((c) => c.health < 70);
       if (hurt) {
         n.intent = `Sheltering ${hurt.name}`;
@@ -798,7 +852,7 @@ export class World {
           hurt.health = Math.min(100, hurt.health + dt);
       } else {
         n.intent = "Tending the settlement";
-        if (n.timer <= 0) {
+        if (n.timer <= 0 || !n.goal) {
           n.goal = {
             x: 650 + this.random() * 500,
             y: 500 + this.random() * 350,
@@ -810,6 +864,7 @@ export class World {
     }
     tickEngineering(this,dt);
     for (const w of s.wolves) {
+      if(w.dead)continue;
       w.frozen = Math.max(0, w.frozen - dt);
       if (w.frozen) continue;
       if (w.retreat > 0) {
@@ -858,7 +913,7 @@ export class World {
       for (let i = 0; i < count && s.wolves.length < 12; i++){
         const type=this.level>=5&&this.threat>=6&&i%3===0?'vampire':this.level>=3&&this.threat>=4&&i%2===0?'direwolf':'wolf';
         const spec=type==='vampire'?{courage:10,speed:42,damage:7}:type==='direwolf'?{courage:6,speed:34,damage:4}:{courage:3,speed:28,damage:2};
-        s.wolves.push({ type, ...spec, x: 1460, y: 440 + i * 55, frozen: 0, retreat: 0 });
+        s.wolves.push({ id:this.id(),health:spec.courage,maxHealth:spec.courage,type, ...spec, x: 1460, y: 440 + i * 55, frozen: 0, retreat: 0 });
       }
       s.nextWave = s.time + Math.max(25, 60 - this.threat * 4);
       this.notify(`Wave ${s.wave} · ${count} wolves approach your settlement.`);
@@ -929,6 +984,7 @@ export class World {
         )
           return false;
       if ((d.buildings?.length || 0) > BUILDING_SAFETY_GUARD) return false;
+      d.projectiles=[];d.lootDrops??=[];d.loot??={};
       d.seeds ||= { clover: 2, carrot: 1, wheat: 1 };
       d.produce ||= { clover: 0, carrot: 0, wheat: 0 };
       for(const id of Object.keys(CROPS)){d.seeds[id]??=0;d.produce[id]??=0;}

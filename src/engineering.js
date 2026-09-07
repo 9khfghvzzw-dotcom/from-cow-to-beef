@@ -79,8 +79,7 @@ export function tickEngineering(world,dt) {
     if(distance(g,enemy)<=spec.range && s.time-g.lastShot>=spec.cooldown){
       g.lastShot=s.time;g.intent='Discharging electric arc';
       s.effects.push({kind:'electric',x:g.x,y:g.y-35,tx:enemy.x,ty:enemy.y-20,until:s.time+.35});
-      enemy.courage=(enemy.courage??3)-2;enemy.frozen=Math.max(enemy.frozen||0,.6);
-      if(enemy.courage<=0){enemy.retreat=15;world.award(10);s.coins=round(s.coins+4);world.notify(`${g.name} repelled a wolf · +4 gold, +10 XP.`);}
+      world.damageEnemy(enemy,2);enemy.frozen=Math.max(enemy.frozen||0,.6);
     }
   }
 }

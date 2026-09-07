@@ -463,10 +463,12 @@ export class Renderer {
       [1400, 1010, 1.4],
     ])
       entities.push({ y, draw: () => this.tree(x, y, z) });
-    for (const w of s.wolves)
+    for (const w of s.wolves.filter(w=>!w.dead))
       entities.push({
         y: w.y,
         draw: () => {
+          const hp=w.health??w.courage??3,max=w.maxHealth??(w.type==='vampire'?10:w.type==='direwolf'?6:3);
+          c.fillStyle='#40252b';c.fillRect(w.x-25,w.y-51,50,6);c.fillStyle='#ef6c66';c.fillRect(w.x-25,w.y-51,50*Math.max(0,hp/max),6);
           this.animal({ ...w, kind: "dog", enemyType:w.type||'wolf' }, s.time, false);
           this.label(
             w.x,
@@ -515,7 +517,14 @@ export class Renderer {
         },
       });
     entities.sort((a, b) => a.y - b.y).forEach((e) => e.draw());
+    for(const drop of s.lootDrops||[]){
+      this.ellipse(drop.x,drop.y,17,9,'#f7cd65');this.label(drop.x,drop.y-18,drop.type==='fur'?'FUR':drop.type==='fang'?'FANG':'ESSENCE','#ffe4a0');
+    }
+    for(const arrow of s.projectiles||[]){
+      c.save();c.translate(arrow.x,arrow.y);c.rotate(arrow.angle||0);c.strokeStyle=arrow.color;c.lineWidth=3;c.beginPath();c.moveTo(-26,0);c.lineTo(8,0);c.stroke();c.fillStyle=arrow.color;c.beginPath();c.moveTo(12,0);c.lineTo(2,-5);c.lineTo(2,5);c.fill();c.beginPath();c.moveTo(-24,-5);c.lineTo(-18,0);c.lineTo(-24,5);c.stroke();c.restore();
+    }
     for (const e of s.effects) {
+      if(e.kind==='damage'){c.save();c.fillStyle='#fff0a4';c.font='bold 22px sans-serif';c.textAlign='center';c.fillText('-'+e.amount,e.x,e.y-(.8-(e.until-s.time))*35);c.restore();continue;}
       if(e.kind==='electric'){
         c.save();c.strokeStyle='#b2f5ff';c.lineWidth=4;c.shadowColor='#5fd8ff';c.shadowBlur=16;c.beginPath();c.moveTo(e.x+48,e.y);c.lineTo((e.x+e.tx)/2,e.y-20);c.lineTo((e.x+e.tx)/2+12,e.y+5);c.lineTo(e.tx,e.ty);c.stroke();c.restore();continue;
       }

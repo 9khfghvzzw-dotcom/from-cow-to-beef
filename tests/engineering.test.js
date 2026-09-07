@@ -11,7 +11,7 @@ test('guardian purchase checks funds, caps roster and never charges for duplicat
 test('electric guard attacks wolves and survives damage; zero armor disables firing',()=>{
  const w=setup(),s=w.state,g=s.guards[0];s.npcs[1].x=200;s.npcs[1].y=200;
  s.wolves=[{x:g.x+10,y:g.y,frozen:0,retreat:0}];g.lastShot=0;w.tick(.25);assert.ok(g.health<240);
- advance(w,5);assert.ok(s.wolves[0].retreat>0);assert.ok(s.effects.some(e=>e.kind==='electric')||g.lastShot>0);assert.equal(s.xp,10);
+ advance(w,5);assert.equal(s.wolves.length,0);assert.ok(s.effects.some(e=>e.kind==='electric')||g.lastShot>0);assert.equal(s.xp,20);
  g.health=0;s.wolves=[{x:g.x+80,y:g.y,frozen:0,retreat:0}];const shot=g.lastShot;advance(w,3);assert.equal(g.lastShot,shot);assert.equal(g.intent,'Offline · repairable');
 });
 test('manual repair bills exactly six gold per active minute, halts on distance and full armor',()=>{

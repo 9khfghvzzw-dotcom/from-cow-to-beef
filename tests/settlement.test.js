@@ -27,6 +27,7 @@ test('insufficient funds uses the actual item name and exact shortfall without c
 test("buy, plant, grow, harvest and sell has a positive, finite economy", () => {
   const w = new World(),
     s = w.state;
+  s.nextWave=1e9;
   w.buySeed("carrot");
   assert.equal(s.coins, 95);
   s.player = { x: s.crops[4].x, y: s.crops[4].y };

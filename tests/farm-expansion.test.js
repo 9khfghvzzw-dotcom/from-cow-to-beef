@@ -24,7 +24,7 @@ test('land deeds add plots and premium crops have profitable finite cycles',()=>
 
 test('special arrows and purchased spells change combat',()=>{
   const w=new World(),s=w.state;s.coins=1000;s.xp=500;s.player={x:500,y:500};s.weapons.push('bow');w.equip('bow');
-  w.buySpecialAmmo('iceArrow');s.wolves=[{x:550,y:500,courage:5,frozen:0,retreat:0}];w.attack();assert.ok(s.wolves[0].frozen>=3);
+  w.buySpecialAmmo('iceArrow');s.wolves=[{x:550,y:500,courage:5,frozen:0,retreat:0}];w.attack();assert.equal(s.projectiles.length,1);w.tick(.1);assert.ok(s.wolves[0].frozen>2);
   w.buySpellScroll('lightning');s.mana=100;s.wolves=[{x:550,y:500,courage:3,frozen:0,retreat:0}];w.cast('lightning');assert.ok(s.wolves[0].retreat>0);
 });
 

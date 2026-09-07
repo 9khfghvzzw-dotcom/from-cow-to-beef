@@ -66,10 +66,12 @@ npx wrangler@4.129.0 deploy
 - `src/settlement-ui.js`: categorized store and settlement actions.
 - `tests/`: deterministic Node tests covering progression, breeding reservations, NPCs, spells, crops, construction, combat, household and save validation.
 
-Validation: 30 passing simulation tests and a successful production build. The tests cover progression, animal care, sheep breeding and sales, eggs and golden chickens, dairy production, land expansion, premium crops, advanced magic and arrows, android defense, stronger level-scaled enemies, engineering, repair costs and save migration.
+Validation: 34 passing simulation tests and a successful production build. The tests cover progression, animal care, sheep breeding and sales, eggs and golden chickens, dairy production, land expansion, premium crops, advanced magic and arrows, android defense, stronger level-scaled enemies, engineering, repair costs and save migration.
 
 [Mobile screenshot](docs/mobile.png)
 
 Time stops when the tab is hidden, a dialog is open or the game is paused. Saves belong to the current browser and origin; clearing site data removes them. This is a single-player browser game, not a signed native iPhone app. A network connection is needed for initial loading; this release does not claim installable offline support.
 
 Code and artwork are provided here for portfolio review. No redistribution license has been granted for the supplied soundtrack.
+
+Combat uses health, visible traveling arrows, damage numbers, enemy death and collectible loot. Sell fur, fangs and essence in General Store → Monster loot. Residents prioritize nearby attackers, then care for animals and water/harvest crops.

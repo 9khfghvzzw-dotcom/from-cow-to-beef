@@ -18,6 +18,6 @@ test('weapon variants have distinct crowd-control effects and attack cooldowns',
 });
 test('first enemy wave arrives in 35 seconds and shepherd has a cooldown',()=>{
  const w=new World(),s=w.state;for(let i=0;i<140;i++)w.tick(.25);assert.equal(s.wolves.length,2);assert.ok(s.nextWave-s.time<60);
- const p=s.npcs[1];s.wolves=[{x:p.x,y:p.y,retreat:0,frozen:0}];w.tick(.1);assert.equal(s.wolves[0].retreat,2.9);
+ const p=s.npcs[1];s.wolves=[{x:p.x,y:p.y,retreat:0,frozen:0}];w.tick(.1);assert.equal(s.wolves[0].health,1.5);
  s.wolves=[{x:p.x,y:p.y,retreat:0,frozen:0}];w.tick(.1);assert.equal(s.wolves[0].retreat,0);
 });

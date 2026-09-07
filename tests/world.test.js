@@ -72,7 +72,7 @@ test("spell unlocks, mana and cooldowns enforce distinct effects", () => {
   w.cast("frost");
   assert.equal(s.wolves[0].frozen, 6);
   w.cast("fire");
-  assert.equal(s.wolves[0].retreat, 12);
+  assert.equal(s.wolves[0].dead, true);
 });
 test("farmer prioritizes an animal in need and shepherd responds to threats", () => {
   const w = new World({ random: () => 0.5 }),
@@ -87,7 +87,7 @@ test("farmer prioritizes an animal in need and shepherd responds to threats", ()
   assert.match(farmer.intent, /Helping/);
   s.wolves.push({ x: s.npcs[1].x, y: s.npcs[1].y, frozen: 0, retreat: 0 });
   w.tick(0.1);
-  assert.ok(s.wolves[0].retreat > 0);
+  assert.ok(s.wolves[0].health < 3);
 });
 test("market route never removes the last cow or a pregnant cow", () => {
   const w = new World(),
