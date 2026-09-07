@@ -13,13 +13,14 @@ A standalone farm-building action RPG for desktop and touch browsers. Grow a pea
 ## Features
 
 - Layered canvas landscape, animated animals, depth sorting, shadows and lighting.
-- Cows, sheep, chickens and a farm dog; a farmer prioritizes animals in need and a shepherd responds to wolves.
-- Four spells: rain, frost, bloom and fire, with level requirements, mana and cooldowns.
-- XP, levels and quests. A breeding robot travels to a healthy adult cow, performs artificial insemination and starts a timed pregnancy. Existing cows and reserved births share a strict 20-slot limit.
+- Cows, breeding sheep, egg-laying chickens and a farm dog; sheep can grow and go to market, while a farmer autonomously prioritizes any farm animal in need and residents help defend the settlement.
+- Chickens lay sellable eggs, with a rare golden egg that can be sold or hatched into a golden chicken. Adult cows produce collectible, sellable milk without being sent to market.
+- Six spells, including purchasable lightning and sanctuary magic, plus three permanent special-arrow upgrades.
+- XP, levels and quests. A breeding robot travels to a healthy adult cow, performs artificial insemination and starts a timed pregnancy. Herds and settlements have no gameplay cap.
 - A General Store organized into seeds/produce, homes/defenses, weapons and household categories.
-- Plant clover, carrots and wheat; harvest and sell produce or keep clover as feed.
-- Place cottages, barns and defensive walls. Settlement growth increases enemy pressure. Buy a bow or sword and defend the herd.
-- An optional household story with an adult human or robot companion, shared meals and a human or fictional hybrid child.
+- Plant clover, carrots, wheat, tea and valuable saffron; buy up to three extra fields with six plots each.
+- Place cottages, barns and defensive walls. Settlement growth and player level increase enemy pressure from wolves, dire wolves and high-level vampires. Buy an expanding weapon roster or electric Voltwarden robots to defend the herd.
+- An optional household story with an adult human or robot companion, shared meals, and a human, hybrid or android child who helps defend the settlement.
 - Original soundtrack supplied by the project owner, with an explicit sound toggle.
 - Local saves, pause, field guide, keyboard, mouse and touch controls. All shop purchases use earned game coins.
 
@@ -65,7 +66,7 @@ npx wrangler@4.129.0 deploy
 - `src/settlement-ui.js`: categorized store and settlement actions.
 - `tests/`: deterministic Node tests covering progression, breeding reservations, NPCs, spells, crops, construction, combat, household and save validation.
 
-Validation: 13 passing simulation tests and a successful production build. Browser checks on the public deployment covered care/XP, the robot visit and pregnancy, rain magic, building a cottage, population/threat changes, companion invitation, shared meals, audio toggle, save restoration and product-specific insufficient-funds feedback. The responsive layout was checked at 390 × 844 with visible touch controls and no horizontal overflow; this is not a claim of physical iPhone testing.
+Validation: 30 passing simulation tests and a successful production build. The tests cover progression, animal care, sheep breeding and sales, eggs and golden chickens, dairy production, land expansion, premium crops, advanced magic and arrows, android defense, stronger level-scaled enemies, engineering, repair costs and save migration.
 
 [Mobile screenshot](docs/mobile.png)
 

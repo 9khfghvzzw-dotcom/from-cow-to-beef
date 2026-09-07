@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { World, CAPACITY, levelFor } from "../src/world.js";
+import { World, levelFor } from "../src/world.js";
 const advance = (w, seconds) => {
   for (let i = 0; i < seconds * 4; i++) w.tick(0.25);
 };
@@ -36,26 +36,24 @@ test("robot travels to adult cow then pregnancy produces a calf", () => {
   assert.equal(c.pregnancy, null);
   assert.ok(c.rest > 0);
 });
-test("immature cows cannot receive insemination and expected calves reserve capacity", () => {
+test("immature cows cannot receive insemination and the herd can grow without a gameplay cap", () => {
   const w = new World(),
     c = w.state.cows[0];
   w.requestVet(c.id);
   assert.equal(c.vetRequested, false);
-  while (w.state.cows.length < 19) w.addCow();
+  while (w.state.cows.length < 25) w.addCow();
   c.growth = 100;
   w.requestVet(c.id);
-  assert.equal(w.reserved, CAPACITY);
+  assert.equal(w.reserved, 26);
   const vet = w.state.npcs.find((n) => n.id === "vet");
   vet.x = c.x;
   vet.y = c.y;
   w.tick(0.1);
   const second = w.state.cows[1];
   second.growth = 100;
-  w.requestVet(second.id);
-  assert.equal(second.vetRequested, false);
   advance(w, 105);
-  assert.equal(w.state.cows.length, CAPACITY);
-  assert.equal(w.reserved, CAPACITY);
+  assert.equal(w.state.cows.length, 26);
+  assert.equal(w.reserved, 26);
 });
 test("spell unlocks, mana and cooldowns enforce distinct effects", () => {
   const w = new World(),

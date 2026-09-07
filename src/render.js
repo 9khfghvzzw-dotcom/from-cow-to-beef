@@ -139,8 +139,8 @@ export class Renderer {
     }
     c.translate(0, bounce);
     if (a.kind === "chicken") {
-      this.ellipse(0, -20, 21, 19, "#f8e9c5");
-      this.ellipse(14, -34, 12, 13, "#fff3d7");
+      this.ellipse(0, -20, 21, 19, a.golden?"#f2c84f":"#f8e9c5");
+      this.ellipse(14, -34, 12, 13, a.golden?"#ffe88a":"#fff3d7");
       this.path(
         [
           [24, -36],
@@ -152,6 +152,7 @@ export class Renderer {
       this.ellipse(11, -48, 6, 7, "#bb6650");
       c.fillStyle = "#322e23";
       c.fillRect(17, -38, 3, 3);
+      if((a.eggs||0)+(a.goldenEggs||0)>0)this.ellipse(-28,0,10,7,(a.goldenEggs||0)>0?'#ffd24d':'#f8ead0');
       c.strokeStyle = "#b78845";
       c.lineWidth = 3;
       for (const x of [-7, 7]) {
@@ -170,7 +171,7 @@ export class Renderer {
         -20,
         34,
         23,
-        cow ? "#f2ead7" : a.kind === "sheep" ? "#e9e3d1" : "#bc8854",
+        cow ? "#f2ead7" : a.kind === "sheep" ? "#e9e3d1" : a.enemyType==='vampire'?"#432945":a.enemyType==='direwolf'?"#5d6670":"#bc8854",
       );
       if (cow) {
         this.ellipse(-13, -28, 14, 14, "#695d49");
@@ -190,7 +191,7 @@ export class Renderer {
         -30,
         15,
         21,
-        cow ? "#f4ebd9" : a.kind === "sheep" ? "#786e58" : "#ba8551",
+        cow ? "#f4ebd9" : a.kind === "sheep" ? "#786e58" : a.enemyType==='vampire'?"#6e3a63":a.enemyType==='direwolf'?"#737d88":"#ba8551",
       );
       this.ellipse(36, -17, 13, 8, cow ? "#cc9e88" : "#67513d");
       this.ellipse(28, -36, 2.5, 3, "#30382a");
@@ -466,12 +467,12 @@ export class Renderer {
       entities.push({
         y: w.y,
         draw: () => {
-          this.animal({ ...w, kind: "dog" }, s.time, false);
+          this.animal({ ...w, kind: "dog", enemyType:w.type||'wolf' }, s.time, false);
           this.label(
             w.x,
             w.y - 60,
-            w.frozen ? "FROZEN" : w.retreat ? "RETREATING" : "WOLF",
-            w.frozen ? "#9ddde2" : "#efb194",
+            w.frozen ? "FROZEN" : w.retreat ? "RETREATING" : w.type==='vampire'?"VAMPIRE":w.type==='direwolf'?"DIRE WOLF":"WOLF",
+            w.frozen ? "#9ddde2" : w.type==='vampire'?"#f29ace":w.type==='direwolf'?"#c1cad4":"#efb194",
           );
         },
       });

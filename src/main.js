@@ -1,6 +1,6 @@
 import { setupSettlement } from "./settlement-ui.js";
 import "./style.css";
-import { World, SPELLS, xpFor, CAPACITY, CROPS, BUILDINGS, WEAPONS } from "./world.js";
+import { World, SPELLS, SPELL_SCROLLS, xpFor, CROPS, BUILDINGS, WEAPONS } from "./world.js";
 import { Renderer } from "./render.js";
 import { patchMarkup } from './dom.js';
 import {setupInventory,useEquipment,TOOL_NAMES} from './inventory.js';
@@ -168,10 +168,10 @@ canvas.onpointerdown = (e) => {
   }
   selectionMarkup = "";
 };
-$("spells").innerHTML = Object.entries(SPELLS)
+$("spells").innerHTML = Object.entries({...SPELLS,...SPELL_SCROLLS})
   .map(
     ([id, s], i) =>
-      `<button class="spell" data-spell="${id}" title="${s.description}"><strong>${["☂", "❄", "✿", "✦"][i]}</strong>${s.name}<small id="spell-${id}"></small></button>`,
+      `<button class="spell" data-spell="${id}" title="${s.description}"><strong>${["☂", "❄", "✿", "✦", "⚡", "◇"][i]}</strong>${s.name}<small id="spell-${id}"></small></button>`,
   )
   .join("");
 $("spells").onclick = (e) => {
@@ -185,6 +185,8 @@ $("selection").onclick = (e) => {
   const s = world.state,
     a = b.dataset.action;
   if (a === "feed" || a === "water") world.care(s.selected, a);
+  if (a === "collect-eggs") world.collectEggs(s.selected);
+  if (a === "collect-milk") world.collectMilk(s.selected);
   if (a === "robot") world.requestVet(s.selected);
   if (a === "harvest") world.harvest(Number(s.selected.split("-")[1]));
   if (a.startsWith("plant:"))
@@ -193,7 +195,7 @@ $("selection").onclick = (e) => {
   if (a === 'repair-guardian') world.startRepair(s.selected);
   if (a === 'maintenance') world.toggleTechnician(s.selected);
   if(a==='cancel-build'){buildMode=null;canvas.style.cursor='';}
-  if (a === "market") {
+  if (a === "market" || a === "market-sheep") {
     marketId = s.selected;
     $("choice").showModal();
   }
@@ -201,7 +203,8 @@ $("selection").onclick = (e) => {
   save();
 };
 $("confirm-market").onclick = () => {
-  world.market(marketId);
+  const sheep=world.state.animals.some(a=>a.id===marketId&&a.kind==='sheep');
+  if(sheep)world.marketSheep(marketId);else world.market(marketId);
   $("choice").close();
   selectionMarkup = "";
   save();
@@ -269,8 +272,8 @@ function ui() {
   $("xp-fill").style.width = `${(progress / needed) * 100}%`;
   $("coins").textContent = `◈ ${Number(s.coins.toFixed(2))} gold`;
   $("feed").textContent = `♧ ${s.food} feed`;
-  $("herd").textContent =
-    `${s.cows.length}/${CAPACITY} cows · ${world.population} residents`;
+  const sheepCount=s.animals.filter(a=>a.kind==='sheep').length;
+  $("herd").textContent = `${s.cows.length} cows · ${sheepCount} sheep · ${world.population} residents`;
   $("mana").textContent = Math.floor(s.mana);
   $("day").textContent =
     `Day ${Math.floor(s.time / 240) + 1} · Threat ${world.threat} · ${s.wolves.filter(w=>!w.retreat).length} hostiles · wave in ${Math.ceil(s.nextWave - s.time)}s`;
@@ -278,12 +281,15 @@ function ui() {
   if($('attack').innerHTML!==actionLabel)$('attack').innerHTML=actionLabel;
   $('attack').title=s.activeTool==='weapon'?`Equipped: ${WEAPONS[s.weapon].name}`:`Equipped: ${TOOL_NAMES[s.activeTool]}`;
   $("toast").textContent = s.notices[0]?.text || "";
-  for (const [id, spec] of Object.entries(SPELLS)) {
+  for (const [id, spec] of Object.entries({...SPELLS,...SPELL_SCROLLS})) {
     const remaining = Math.max(0, Math.ceil((s.cooldowns[id] || 0) - s.time)),
       b = document.querySelector(`[data-spell="${id}"]`);
-    b.disabled = level < spec.level || remaining > 0 || s.mana < spec.mana;
+    const unowned=!!SPELL_SCROLLS[id]&&!s.spellScrolls.includes(id);
+    b.disabled = unowned || level < spec.level || remaining > 0 || s.mana < spec.mana;
     $(`spell-${id}`).textContent =
-      level < spec.level
+      unowned
+        ? 'STORE'
+        : level < spec.level
         ? `LEVEL ${spec.level}`
         : remaining
           ? `${remaining}s`
@@ -308,7 +314,10 @@ function ui() {
   let html =
     '<p class="eyebrow">WELCOME HOME</p><h2>Your own pace.</h2><p>Click an animal to meet it. Click the garden to grow something good.</p><small>WASD / arrows to walk · Click to explore</small>';
   if (animal) {
-    html = `<p class="eyebrow">${animal.kind === "cow" ? (animal.growth >= 100 ? "ADULT COW" : "GROWING CALF") : escape(animal.kind.toUpperCase())}</p><h2>${escape(animal.name || { dog: "Scout", sheep: "Woolly", chicken: "Pip" }[animal.kind])}</h2><p>${escape(animal.intent)}</p>${meter("Food", animal.hunger)}${meter("Water", animal.thirst)}${animal.kind === "cow" ? meter("Growth", animal.growth) + meter("Health", animal.health) : ""}<button data-action="feed">Feed · 1 clover</button><button data-action="water">Give water</button>`;
+    html = `<p class="eyebrow">${animal.kind === "cow" ? (animal.growth >= 100 ? "ADULT COW" : "GROWING CALF") : animal.kind==='sheep'&&animal.growth<100?'GROWING LAMB':escape(animal.golden ? "GOLDEN CHICKEN" : animal.kind.toUpperCase())}</p><h2>${escape(animal.name || { dog: "Scout", sheep: "Woolly", chicken: "Pip" }[animal.kind])}</h2><p>${escape(animal.intent)}</p>${meter("Food", animal.hunger)}${meter("Water", animal.thirst)}${animal.kind === "cow" ? meter("Growth", animal.growth) + meter("Health", animal.health) : animal.kind==='sheep'?meter("Growth",animal.growth??100):""}<button data-action="feed">Feed · 1 clover</button><button data-action="water">Give water</button>`;
+    if(animal.kind==='sheep'&&(animal.growth??100)>=100)html+=`<button data-action="market-sheep">Sell sheep · 45 gold</button><small>Healthy adult sheep reproduce naturally. There is no flock limit.</small>`;
+    if(animal.kind==='chicken')html+=`<p>${animal.eggs||0} eggs · ${animal.goldenEggs||0} golden eggs ready</p><button data-action="collect-eggs">Collect eggs</button>`;
+    if(animal.kind==='cow'&&animal.growth>=100)html+=`<p>${Math.floor(animal.milk||0)} milk bags ready</p><button data-action="collect-milk">Collect milk</button>`;
     if (animal.kind === "cow")
       html +=
         animal.pregnancy !== null
@@ -317,7 +326,7 @@ function ui() {
             ? "<p>B.O.V.I. is on the way.</p>"
             : animal.rest > 0
               ? "<p>Resting after birth.</p>"
-              : `<button data-action="robot" ${animal.growth < 100 ? "disabled" : ""}>Call robot · 25 coins</button><small>Artificial insemination · ${world.reserved}/20 slots reserved</small>`;
+              : `<button data-action="robot" ${animal.growth < 100 ? "disabled" : ""}>Call robot · 25 coins</button><small>Artificial insemination · ${world.reserved} cows including expected calves · no herd limit</small>`;
     if (
       animal.kind === "cow" &&
       animal.growth >= 100 &&

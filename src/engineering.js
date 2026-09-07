@@ -86,7 +86,8 @@ export function tickEngineering(world,dt) {
 }
 export function migrateEngineering(d) {
   d.guards??=[];d.technicians??=[];d.tools??=[];d.repairJob??=null;d.repairGoldSpent??=0;d.activeTool??='weapon';
-  if(!Array.isArray(d.guards)||d.guards.length>4||!Array.isArray(d.technicians)||d.technicians.length>2||!Array.isArray(d.tools)||d.tools.some(t=>!['screwdriver','hoe','watering_can'].includes(t))||!['weapon','hoe','watering_can','screwdriver'].includes(d.activeTool)||!Number.isFinite(d.repairGoldSpent)||d.repairGoldSpent<0)return false;
+  const toolIds=['screwdriver','hoe','watering_can','egg_basket','milking_kit'];
+  if(!Array.isArray(d.guards)||d.guards.length>4||!Array.isArray(d.technicians)||d.technicians.length>2||!Array.isArray(d.tools)||d.tools.some(t=>!toolIds.includes(t))||!['weapon',...toolIds].includes(d.activeTool)||!Number.isFinite(d.repairGoldSpent)||d.repairGoldSpent<0)return false;
   for(const t of ['hoe','watering_can'])if(!d.tools.includes(t))d.tools.push(t);
   if(d.activeTool!=='weapon'&&!d.tools.includes(d.activeTool))d.activeTool='weapon';
   const ids=new Set();

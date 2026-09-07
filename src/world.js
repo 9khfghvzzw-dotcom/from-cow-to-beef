@@ -1,9 +1,25 @@
 import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
-export const CAPACITY = 20;
+// Generous corruption guards, far beyond normal play; these are not gameplay limits.
+const ANIMAL_SAFETY_GUARD = 5000;
+const BUILDING_SAFETY_GUARD = 3000;
 export const BUILDINGS = {
   house: { name: "Cottage", price: 75, size: 65, population: 3 },
   barn: { name: "Barn", price: 110, size: 75, population: 1 },
   wall: { name: "Stone wall", price: 12, size: 28, population: 0 },
+};
+export const FARM_UPGRADES = {
+  land: { name: "Garden land deed", price: 120 },
+  dairy: { name: "Hand milking kit", price: 90 },
+  eggBasket: { name: "Egg collecting basket", price: 45 },
+};
+export const SPECIAL_AMMO = {
+  fireArrow: { name: "Fire arrows", price: 75, power: 1, burn: 4 },
+  iceArrow: { name: "Ice arrows", price: 85, power: .5, stun: 3 },
+  stormArrow: { name: "Storm arrows", price: 110, power: 1.5, chain: 110 },
+};
+export const SPELL_SCROLLS = {
+  lightning: { name: "Lightning storm", price: 140, level: 3, mana: 34, cooldown: 14, description: "Electric arcs repel up to four nearby attackers." },
+  sanctuary: { name: "Sanctuary shield", price: 160, level: 3, mana: 30, cooldown: 22, description: "Protect animals, people and buildings for 12 seconds." },
 };
 export const WEAPONS = {
   shortsword: {name:'Short sword',price:0,range:110,power:1.5,cooldown:.65,description:'Your starting blade. Two quick hits repel a wolf.'},
@@ -46,6 +62,8 @@ export const CROPS = {
     growRate: 0.8,
     color: "#e1c779",
   },
+  tea: { name: "Tea leaves", seedPrice: 16, salePrice: 13, yield: 4, growRate: .48, color: "#4f9c67" },
+  saffron: { name: "Saffron", seedPrice: 30, salePrice: 32, yield: 3, growRate: .28, color: "#d66a9f" },
 };
 export const SPELLS = {
   rain: {
@@ -98,11 +116,14 @@ export class World {
       care: 0,
       deliveries: 0,
       nextId: 1,
+      nextSheepBirth: 150,
       weapon: "shortsword",
       weapons: ["staff", "shortsword"],
       lastAttack: -10,
       seeds: { clover: 2, carrot: 1, wheat: 1 },
       produce: { clover: 0, carrot: 0, wheat: 0 },
+      eggs: 0, goldenEggs: 0, milk: 0, livestockSales: 0,
+      farmUpgrades: [], landExpansions: 0, specialAmmo: null, specialAmmoOwned: [], spellScrolls: [], sanctuaryUntil: 0,
       sales: 0,
       buildings: [],
       guards: [], technicians: [], tools: ['hoe','watering_can'], activeTool: 'weapon', repairJob: null, repairGoldSpent: 0,
@@ -175,7 +196,11 @@ export class World {
         timer: 0,
         hunger: 80,
         thirst: 85,
+        growth: kind === "sheep" ? 100 : undefined,
         intent: "Exploring",
+        eggTimer: kind === "chicken" ? 45 + this.random() * 45 : undefined,
+        eggs: 0,
+        golden: false,
       });
     for (let i = 0; i < 6; i++)
       this.state.crops.push({
@@ -206,7 +231,8 @@ export class World {
     return (
       1 +
       Math.floor((this.population - 3) / 3) +
-      Math.floor(this.state.cows.length / 5)
+      Math.floor(this.state.cows.length / 5) +
+      Math.floor((this.level - 1) / 2)
     );
   }
   get reserved() {
@@ -217,7 +243,7 @@ export class World {
     );
   }
   addCow({ name, growth = 0, x = 850, y = 600 } = {}) {
-    if (this.state.cows.length >= CAPACITY) return null;
+    if (this.state.cows.length + this.state.animals.length >= ANIMAL_SAFETY_GUARD) return null;
     const cow = {
       id: this.id(),
       kind: "cow",
@@ -236,6 +262,16 @@ export class World {
     };
     this.state.cows.push(cow);
     return cow;
+  }
+  addSheep({ name, growth = 0, x = 1150, y = 560 } = {}) {
+    if (this.state.cows.length + this.state.animals.length >= ANIMAL_SAFETY_GUARD) return null;
+    const sheep = {
+      id: this.id(), kind: "sheep", name: name || `Lamb ${this.state.nextId - 1}`,
+      x, y, homeX: x, homeY: y, timer: 0, hunger: 85, thirst: 85,
+      growth, intent: growth >= 100 ? "Grazing with the flock" : "Growing beside the flock",
+    };
+    this.state.animals.push(sheep);
+    return sheep;
   }
   notify(text) {
     this.state.notices.unshift({ text, until: this.state.time + 6 });
@@ -300,6 +336,23 @@ export class World {
     this.state.seeds[type]++;
     return this.notify(`${spec.name} seeds added to your bag.`);
   }
+  buyFarmUpgrade(type) {
+    const spec=FARM_UPGRADES[type],s=this.state;if(!spec)return;
+    if(type!=='land'&&s.farmUpgrades.includes(type))return this.notify(`${spec.name} is already owned.`);
+    if(type==='land'&&s.landExpansions>=3)return this.notify('All three garden fields are already unlocked.');
+    if(!this.canAfford(spec.price,spec.name))return;s.coins-=spec.price;
+    if(type==='land'){
+      const row=s.landExpansions++, base=6+row*6;
+      for(let i=0;i<6;i++)s.crops.push({id:base+i,x:590+(i%3)*65,y:700+row*95+Math.floor(i/3)*65,type:null,growth:0,water:70});
+      this.notify('New garden field unlocked · 6 planting plots ready.');
+    } else {s.farmUpgrades.push(type);s.tools.push(type==='dairy'?'milking_kit':'egg_basket');this.notify(`${spec.name} added to your inventory.`);}
+  }
+  buySpecialAmmo(type){const a=SPECIAL_AMMO[type],s=this.state;if(!a)return;if(!s.specialAmmoOwned.includes(type)){if(!this.canAfford(a.price,a.name))return;s.coins-=a.price;s.specialAmmoOwned.push(type);}s.specialAmmo=type;return this.notify(`${a.name} equipped for the bow.`);}
+  buySpellScroll(type){const a=SPELL_SCROLLS[type],s=this.state;if(!a||s.spellScrolls.includes(type))return this.notify('This spell is already learned.');if(!this.canAfford(a.price,a.name))return;s.coins-=a.price;s.spellScrolls.push(type);return this.notify(`${a.name} learned.`);}
+  collectEggs(id){const s=this.state,c=s.animals.find(a=>a.id===id&&a.kind==='chicken');if(!c)return;if(!s.farmUpgrades.includes('eggBasket'))return this.notify('Buy an Egg collecting basket first.');if(!c.eggs&&!c.goldenEggs)return this.notify('No eggs ready yet.');s.eggs+=c.eggs||0;s.goldenEggs+=c.goldenEggs||0;const n=(c.eggs||0)+(c.goldenEggs||0);c.eggs=0;c.goldenEggs=0;this.award(n*4);return this.notify(`Collected ${n} egg${n===1?'':'s'}${s.goldenEggs?' · golden treasure secured!':''}.`);}
+  collectMilk(id){const s=this.state,c=s.cows.find(a=>a.id===id);if(!c||c.growth<100)return this.notify('Only an adult cow can be milked.');if(!s.farmUpgrades.includes('dairy'))return this.notify('Buy the Hand milking kit first.');if((c.milk||0)<1)return this.notify('No milk ready yet.');const n=Math.floor(c.milk);c.milk-=n;s.milk+=n;this.award(n*3);return this.notify(`Collected ${n} milk bag${n===1?'':'s'}.`);}
+  sellLivestockProduct(type){const s=this.state,field=type==='goldenEgg'?'goldenEggs':type==='egg'?'eggs':'milk',price=type==='goldenEgg'?80:type==='egg'?7:12,n=s[field]||0;if(!n)return this.notify('Collect this product before selling.');s.coins+=n*price;s[field]=0;s.livestockSales+=n;this.award(n*3);return this.notify(`Sold ${n} ${type==='goldenEgg'?'golden eggs':type==='egg'?'eggs':'milk bags'} · +${n*price} gold.`);}
+  hatchGoldenEgg(){const s=this.state;if(!s.goldenEggs)return this.notify('You need a golden egg to hatch.');s.goldenEggs--;const a={id:this.id(),kind:'chicken',name:'Aurelia',x:510,y:650,homeX:510,homeY:650,timer:0,hunger:90,thirst:90,intent:'A golden chick',eggTimer:30,eggs:0,goldenEggs:0,golden:true};s.animals.push(a);this.award(100);return this.notify('A golden chick hatched! Every egg she lays will be golden.');}
   plant(id, type) {
     const p = this.state.crops.find((p) => p.id === id);
     if (!p || p.type || !CROPS[type])
@@ -363,9 +416,11 @@ export class World {
       .sort((a, b) => distance(a, s.player) - distance(b, s.player))[0];
     if (!enemy) return this.notify("No wolf within weapon range.");
     const targets=[enemy,...(spec.splash?s.wolves.filter(w=>w!==enemy&&!w.retreat&&distance(w,enemy)<=spec.splash&&distance(w,s.player)<=spec.range).slice(0,2):[])];
+    const ammo=s.weapon==='bow'&&s.specialAmmo?SPECIAL_AMMO[s.specialAmmo]:null;
     for(const victim of targets){
-      victim.courage=(victim.courage??3)-spec.power;
-      if(spec.stun)victim.frozen=Math.max(victim.frozen||0,spec.stun);
+      victim.courage=(victim.courage??3)-spec.power-(ammo?.power||0);
+      if(spec.stun||ammo?.stun)victim.frozen=Math.max(victim.frozen||0,spec.stun||ammo.stun);
+      if(ammo?.burn)victim.courage-=ammo.burn;
       if(s.weapon==='blaster')s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:victim.x,ty:victim.y-20,until:s.time+.3});
       if(s.weapon==='cryo')s.effects.push({kind:'frost',x:victim.x,y:victim.y,until:s.time+1});
       if(victim.courage<=0){victim.retreat=15;this.award(20);s.coins+=6;}
@@ -379,10 +434,7 @@ export class World {
     x = Math.round(x / 40) * 40;
     y = Math.round(y / 40) * 40;
     if (!this.canAfford(spec.price, spec.name)) return false;
-    if (s.buildings.length >= 60) {
-      this.notify("This valley has room for 60 structures.");
-      return false;
-    }
+    if (s.buildings.length >= BUILDING_SAFETY_GUARD) return false;
     if (
       x < 240 ||
       x > 1450 ||
@@ -508,10 +560,6 @@ export class World {
         "This cow is pregnant, awaiting a visit, or resting after birth.",
       );
     if (vet.target) return this.notify("B.O.V.I. is already on a visit.");
-    if (this.reserved >= CAPACITY)
-      return this.notify(
-        "The herd is full: 20 cows including expected calves.",
-      );
     if (!this.canAfford(25, 'a B.O.V.I. insemination visit')) return;
     this.state.coins -= 25;
     cow.vetRequested = true;
@@ -522,8 +570,9 @@ export class World {
     );
   }
   cast(spell) {
-    const spec = SPELLS[spell],
+    const spec = SPELLS[spell]||SPELL_SCROLLS[spell],
       s = this.state;
+    if(SPELL_SCROLLS[spell]&&!s.spellScrolls.includes(spell))return this.notify('Buy this spell scroll first.');
     if (!spec || this.level < spec.level)
       return this.notify(`Unlock this spell at level ${spec?.level || 1}.`);
     if ((s.cooldowns[spell] || 0) > s.time)
@@ -550,6 +599,10 @@ export class World {
         if (distance(c, s.player) < 320)
           c.growth = Math.min(100, c.growth + 12);
     }
+    if(spell==='lightning'){
+      for(const w of s.wolves.filter(w=>!w.retreat).sort((a,b)=>distance(a,s.player)-distance(b,s.player)).slice(0,4)){w.courage=(w.courage??3)-4;if(w.courage<=0)w.retreat=15;s.effects.push({kind:'electric',x:s.player.x,y:s.player.y-35,tx:w.x,ty:w.y,until:s.time+.5});}
+    }
+    if(spell==='sanctuary')s.sanctuaryUntil=s.time+12;
     for (const w of s.wolves)
       if (distance(w, s.player) < 320) {
         if (spell === "frost") w.frozen = 6;
@@ -583,6 +636,7 @@ export class World {
       cow.hunger = Math.max(0, cow.hunger - dt * 0.22);
       cow.thirst = Math.max(0, cow.thirst - dt * 0.3);
       cow.rest = Math.max(0, cow.rest - dt);
+      if(cow.growth>=100&&cow.hunger>35&&cow.thirst>35)cow.milk=Math.min(8,(cow.milk||0)+dt/35);
       if (cow.hunger > 40 && cow.thirst > 40) {
         cow.growth = Math.min(100, cow.growth + dt * 0.6);
         cow.health = Math.min(
@@ -599,7 +653,7 @@ export class World {
       }
       if (cow.pregnancy !== null) {
         cow.pregnancy += dt;
-        if (cow.pregnancy >= 100 && s.cows.length < CAPACITY) {
+        if (cow.pregnancy >= 100) {
           cow.pregnancy = null;
           cow.rest = 90;
           this.addCow({ x: cow.x + 25, y: cow.y + 25 });
@@ -647,7 +701,7 @@ export class World {
     }
     const farmer = s.npcs.find((n) => n.id === "farmer");
     farmer.timer -= dt;
-    const needy = [...s.cows].sort(
+    const needy = [...s.cows,...s.animals.filter(a=>a.kind!=='dog')].sort(
       (a, b) => Math.min(a.hunger, a.thirst) - Math.min(b.hunger, b.thirst),
     )[0];
     if (needy && Math.min(needy.hunger, needy.thirst) < 55) {
@@ -659,7 +713,7 @@ export class World {
         else needy.hunger = Math.min(100, needy.hunger + 20);
         farmer.timer = 12;
       }
-    } else farmer.intent = "Checking the garden";
+    } else farmer.intent = "Checking every animal and the garden";
     const shepherd = s.npcs.find((n) => n.id === "shepherd");
     const danger = s.wolves.find((w) => !w.retreat);
     shepherd.intent = danger ? "Driving wolves away" : "Patrolling the pasture";
@@ -692,6 +746,18 @@ export class World {
     }
     for (const a of s.animals) {
       a.timer -= dt;
+      if(a.kind !== 'dog'){
+        a.hunger=Math.max(0,a.hunger-dt*.14);
+        a.thirst=Math.max(0,a.thirst-dt*.2);
+      }
+      if(a.kind==='sheep'&&a.growth<100&&a.hunger>35&&a.thirst>35){
+        a.growth=Math.min(100,a.growth+dt*.75);
+        a.intent=a.growth>=100?'Joined the adult flock':'Growing beside the flock';
+      }
+      if(a.kind==='chicken'){
+        a.eggTimer=(a.eggTimer??60)-dt;
+        if(a.eggTimer<=0){const gold=a.golden||this.random()<.025;if(gold)a.goldenEggs=(a.goldenEggs||0)+1;else a.eggs=(a.eggs||0)+1;a.eggTimer=45+this.random()*45;a.intent=gold?'Laid a golden egg!':'An egg is ready';if(gold)this.notify(`${a.name||'A chicken'} laid a golden egg! Sell it or hatch a golden chick.`);}
+      }
       if (a.kind === "dog") {
         a.intent = danger ? "Guarding the herd" : "Following you";
         this.moveTo(
@@ -711,8 +777,19 @@ export class World {
         this.moveTo(a, a.goal, a.kind === "chicken" ? 22 : 15, dt);
       }
     }
-    for (const n of s.npcs.filter((n) => n.id.startsWith("resident-"))) {
+    if(s.time >= (s.nextSheepBirth??150)){
+      const adults=s.animals.filter(a=>a.kind==='sheep'&&(a.growth??100)>=100&&a.hunger>35&&a.thirst>35);
+      if(adults.length>=2){
+        const mother=adults[Math.floor(this.random()*adults.length)];
+        const lamb=this.addSheep({x:mother.x+25,y:mother.y+18});
+        if(lamb){s.births++;this.award(45);this.notify(`${lamb.name} was born! Keep the flock fed and watered · +45 XP.`);}
+        s.nextSheepBirth=s.time+150+this.random()*90;
+      } else s.nextSheepBirth=s.time+30;
+    }
+    for (const n of s.npcs.filter((n) => n.id.startsWith("resident-")||n.id==='partner'||n.id==='child')) {
       n.timer -= dt;
+      const foe=s.wolves.find(w=>!w.retreat&&distance(w,n)<210);
+      if(foe){n.intent='Defending the settlement';this.moveTo(n,foe,n.role?.includes('Robot')?70:48,dt);if(distance(n,foe)<75&&n.timer<=0){foe.courage=(foe.courage??3)-(n.role?.includes('Robot')?2:1);if(foe.courage<=0)foe.retreat=10;n.timer=n.role?.includes('Robot')?2:5;}continue;}
       const hurt = s.cows.find((c) => c.health < 70);
       if (hurt) {
         n.intent = `Sheltering ${hurt.name}`;
@@ -742,7 +819,7 @@ export class World {
         const defender = s.guards.filter(g=>g.health>0 && distance(g,w)<150).sort((a,b)=>distance(a,w)-distance(b,w))[0];
         if(defender) {
           this.moveTo(w,defender,45,dt);w.intent='Attacking the guardian';
-          if(distance(w,defender)<45) defender.health=Math.max(0,defender.health-dt*12);
+          if(distance(w,defender)<45&&s.sanctuaryUntil<=s.time) defender.health=Math.max(0,defender.health-dt*12);
           continue;
         }
         const target = [...s.cows].sort(
@@ -758,15 +835,15 @@ export class World {
           if (obstacle) {
             obstacle.health = Math.max(
               0,
-              obstacle.health - dt * (obstacle.type === "wall" ? 5 : 3),
+              obstacle.health - (s.sanctuaryUntil>s.time?0:dt * (obstacle.type === "wall" ? 5 : 3)),
             );
             w.intent = "Breaking through";
           } else {
-            this.moveTo(w, target, 28 + Math.min(15, this.threat * 2), dt);
+            this.moveTo(w, target, (w.speed||28) + Math.min(15, this.threat * 2), dt);
             w.intent = "Hunting";
           }
           if (distance(w, target) < 35)
-            target.health = Math.max(15, target.health - dt * 2);
+            target.health = Math.max(15, target.health - (s.sanctuaryUntil>s.time?0:dt * (w.damage||2)));
         }
       }
     }
@@ -778,8 +855,11 @@ export class World {
     if (s.time >= s.nextWave) {
       s.wave++;
       const count = Math.min(10, this.threat+1);
-      for (let i = 0; i < count && s.wolves.length < 12; i++)
-        s.wolves.push({ x: 1460, y: 440 + i * 55, frozen: 0, retreat: 0 });
+      for (let i = 0; i < count && s.wolves.length < 12; i++){
+        const type=this.level>=5&&this.threat>=6&&i%3===0?'vampire':this.level>=3&&this.threat>=4&&i%2===0?'direwolf':'wolf';
+        const spec=type==='vampire'?{courage:10,speed:42,damage:7}:type==='direwolf'?{courage:6,speed:34,damage:4}:{courage:3,speed:28,damage:2};
+        s.wolves.push({ type, ...spec, x: 1460, y: 440 + i * 55, frozen: 0, retreat: 0 });
+      }
       s.nextWave = s.time + Math.max(25, 60 - this.threat * 4);
       this.notify(`Wave ${s.wave} · ${count} wolves approach your settlement.`);
     }
@@ -804,6 +884,13 @@ export class World {
     s.selected = null;
     return this.notify("Market delivery complete · +70 coins, +25 XP.");
   }
+  marketSheep(id) {
+    const s=this.state, sheep=s.animals.find(a=>a.id===id&&a.kind==='sheep');
+    if(!sheep||(sheep.growth??100)<100)return this.notify('Only an adult sheep can go to market.');
+    s.animals=s.animals.filter(a=>a.id!==id);
+    s.coins+=45;s.livestockSales++;s.deliveries++;s.selected=null;this.award(20);
+    return this.notify('Sheep market delivery complete · +45 gold, +20 XP.');
+  }
   save() {
     const { effects, notices, ...data } = this.state;
     return JSON.stringify(data);
@@ -815,7 +902,7 @@ export class World {
         d.version !== 1 ||
         !Array.isArray(d.cows) ||
         d.cows.length < 1 ||
-        d.cows.length > CAPACITY ||
+        d.cows.length + (d.animals?.length || 0) > ANIMAL_SAFETY_GUARD ||
         !Array.isArray(d.animals) ||
         !Array.isArray(d.crops) ||
         !Array.isArray(d.npcs) ||
@@ -841,14 +928,15 @@ export class World {
           )
         )
           return false;
-      if (
-        d.cows.length +
-          d.cows.filter((c) => c.pregnancy !== null || c.vetRequested).length >
-        CAPACITY
-      )
-        return false;
+      if ((d.buildings?.length || 0) > BUILDING_SAFETY_GUARD) return false;
       d.seeds ||= { clover: 2, carrot: 1, wheat: 1 };
       d.produce ||= { clover: 0, carrot: 0, wheat: 0 };
+      for(const id of Object.keys(CROPS)){d.seeds[id]??=0;d.produce[id]??=0;}
+      d.eggs??=0;d.goldenEggs??=0;d.milk??=0;d.livestockSales??=0;d.farmUpgrades??=[];d.landExpansions??=0;d.specialAmmo??=null;d.specialAmmoOwned??=[];d.spellScrolls??=[];d.sanctuaryUntil??=0;
+      for(const a of d.animals)if(a.kind==='chicken'){a.eggTimer??=45+this.random()*45;a.eggs??=0;a.goldenEggs??=0;a.golden??=false;}
+      for(const a of d.animals)if(a.kind==='sheep')a.growth??=100;
+      d.nextSheepBirth??=d.time+150;
+      for(const c of d.cows)c.milk??=0;
       d.sales ||= 0;
       d.buildings ||= [];
       d.weapon ||= "staff";
