@@ -3,9 +3,6 @@ import {COMPANIONS} from './companions.js';
 import {tickTeamwork} from './teamwork.js';
 import {tickLivestock} from './livestock.js';
 import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
-// Generous corruption guards, far beyond normal play; these are not gameplay limits.
-const ANIMAL_SAFETY_GUARD = 5000;
-const BUILDING_SAFETY_GUARD = 3000;
 export const LOOT = {fur:{name:'Wolf fur',price:12},fang:{name:'Dire wolf fang',price:24},essence:{name:'Vampire essence',price:40}};
 export const BUILDINGS = {
   sheepfold: {name:'Sheep shelter',price:90,size:65,population:0,description:'Shelters sheep; food and water recover nearby.'},
@@ -233,6 +230,7 @@ export class World {
   get level() {
     return levelFor(this.state.xp);
   }
+  get southBoundary(){return this.state.crops.reduce((max,p)=>Math.max(max,p.y+100),1000);}
   get population() {
     return (
       3 +
@@ -255,7 +253,6 @@ export class World {
     );
   }
   addCow({ name, growth = 0, x = 850, y = 600 } = {}) {
-    if (this.state.cows.length + this.state.animals.length >= ANIMAL_SAFETY_GUARD) return null;
     const cow = {
       id: this.id(),
       kind: "cow",
@@ -276,7 +273,6 @@ export class World {
     return cow;
   }
   addSheep({ name, growth = 0, x = 1150, y = 560 } = {}) {
-    if (this.state.cows.length + this.state.animals.length >= ANIMAL_SAFETY_GUARD) return null;
     const sheep = {
       id: this.id(), kind: "sheep", name: name || `Lamb ${this.state.nextId - 1}`,
       x, y, homeX: x, homeY: y, timer: 0, hunger: 85, thirst: 85,
@@ -352,12 +348,11 @@ export class World {
   buyFarmUpgrade(type) {
     const spec=FARM_UPGRADES[type],s=this.state;if(!spec)return;
     if(type!=='land'&&s.farmUpgrades.includes(type))return this.notify(`${spec.name} is already owned.`);
-    if(type==='land'&&s.landExpansions>=3)return this.notify('All three garden fields are already unlocked.');
     if(!this.canAfford(spec.price,spec.name))return;s.coins-=spec.price;
     if(type==='land'){
-      const row=s.landExpansions++, base=6+row*6;
-      for(let i=0;i<6;i++)s.crops.push({id:base+i,x:590+(i%3)*65,y:700+row*95+Math.floor(i/3)*65,type:null,growth:0,water:70});
-      this.notify('New garden field unlocked · 6 planting plots ready.');
+      const row=s.landExpansions++, base=Math.max(-1,...s.crops.map(p=>p.id))+1;
+      for(let i=0;i<6;i++)s.crops.push({id:base+i,x:590+(i%3)*65,y:(row<3?700+row*95:1040+(row-3)*180)+Math.floor(i/3)*65,type:null,growth:0,water:70});
+      this.notify('New garden field unlocked · 6 planting plots ready. Additional fields extend south. No field limit.');
     } else {s.farmUpgrades.push(type);s.tools.push(type==='dairy'?'milking_kit':'egg_basket');this.notify(`${spec.name} added to your inventory.`);}
   }
   buySpecialAmmo(type){const a=SPECIAL_AMMO[type],s=this.state;if(!a)return;if(!s.specialAmmoOwned.includes(type)){if(!this.canAfford(a.price,a.name))return;s.coins-=a.price;s.specialAmmoOwned.push(type);}s.specialAmmo=type;return this.notify(`${a.name} equipped for the bow.`);}
@@ -472,12 +467,11 @@ export class World {
     x = Math.round(x / 40) * 40;
     y = Math.round(y / 40) * 40;
     if (!this.canAfford(spec.price, spec.name)) return false;
-    if (s.buildings.length >= BUILDING_SAFETY_GUARD) return false;
     if (
       x < 240 ||
       x > 1450 ||
       y < 430 ||
-      y > 1000 ||
+      y > this.southBoundary ||
       (x > 970 && x < 1340 && y > 760) ||
       s.crops.some((p) => Math.hypot(p.x - x, p.y - y) < 90) ||
       s.buildings.some(
@@ -993,7 +987,6 @@ export class World {
         d.version !== 1 ||
         !Array.isArray(d.cows) ||
         d.cows.length < 1 ||
-        d.cows.length + (d.animals?.length || 0) > ANIMAL_SAFETY_GUARD ||
         !Array.isArray(d.animals) ||
         !Array.isArray(d.crops) ||
         !Array.isArray(d.npcs) ||
@@ -1019,7 +1012,6 @@ export class World {
           )
         )
           return false;
-      if ((d.buildings?.length || 0) > BUILDING_SAFETY_GUARD) return false;
       d.projectiles=[];d.lootDrops??=[];d.loot??={};
       d.seeds ||= { clover: 2, carrot: 1, wheat: 1 };
       d.produce ||= { clover: 0, carrot: 0, wheat: 0 };

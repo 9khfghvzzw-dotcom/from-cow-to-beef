@@ -331,7 +331,7 @@ export class Renderer {
     ground.addColorStop(.5, '#8cc05b');
     ground.addColorStop(1, "#4b954d");
     c.fillStyle = ground;
-    c.fillRect(-2000, -2000, 6000, 5000);
+    c.fillRect(s.player.x-r.width/this.scale,s.player.y-r.height/this.scale,r.width/this.scale*2,r.height/this.scale*2);
     this.path(
       [
         [-300, 180],

@@ -149,7 +149,7 @@ canvas.onpointerdown = (e) => {
   }
   target = {
     x: Math.max(220, Math.min(1450, p.x)),
-    y: Math.max(405, Math.min(950, p.y)),
+    y: Math.max(405, Math.min(world.southBoundary, p.y)),
   };
   const cropHit = s.crops.find((a) => Math.hypot(a.x - p.x, a.y - p.y) < 35);
   if (cropHit) {
@@ -397,7 +397,7 @@ function frame(now) {
     const d = Math.hypot(x, y);
     if (d) {
       p.x = Math.max(220, Math.min(1450, p.x + (x / d) * 190 * dt));
-      p.y = Math.max(405, Math.min(950, p.y + (y / d) * 190 * dt));
+      p.y = Math.max(405, Math.min(world.southBoundary, p.y + (y / d) * 190 * dt));
     } else if (target) {
       world.moveTo(p, target, 190, dt);
       if (Math.hypot(p.x - target.x, p.y - target.y) < 4) target = null;
