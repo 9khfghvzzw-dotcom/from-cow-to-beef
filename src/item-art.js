@@ -37,6 +37,12 @@ const drawings={
   feed:'<path d="m70 40 61 2-9 19q28 69-21 76-53 0-37-52l16-24z" fill="#c4a673"/><path d="M75 59h49" stroke="#775f43" stroke-width="5"/><path d="M97 118V78m0 22-13-12m13 4 13-10" stroke="#567958" stroke-width="5"/>'
 };
 export function itemArt(id,label) {
+  const fish=['goldfish','shark','piranha'].includes(id);
+  const tank=['tank','sharkTank','piranhaPool'].includes(id);
+  const shelter=['sheepfold','coop','kennel'].includes(id);
+  const animal=['sheep','dog','chicken'].includes(id);
+  const aquatic=`<ellipse cx="98" cy="85" rx="42" ry="23" fill="${id==='shark'?'#8fc9df':id==='piranha'?'#ee785c':'#ffc34c'}"/><path d="m60 85-29-23v46z" fill="#f79f43"/><path d="m90 62 16-25 14 31" fill="#8abccd"/><circle cx="123" cy="79" r="5" fill="#17343d"/>`;
+  const extra=fish?aquatic:tank?`<path d="M32 43h136v90H32z" fill="#70cadd" stroke="#bbeced" stroke-width="7"/>${aquatic}`:shelter?'<path d="M47 73h108v64H47z" fill="#d5a360"/><path d="m30 74 70-49 70 49z" fill="#b75c48"/><path d="M82 92h35v45H82z" fill="#344f40"/>':id==='wool'?'<g fill="#fff0d6"><circle cx="78" cy="83" r="28"/><circle cx="114" cy="83" r="32"/><circle cx="94" cy="107" r="25"/></g>':animal?`<ellipse cx="93" cy="100" rx="42" ry="27" fill="${id==='sheep'?'#fff0da':id==='dog'?'#c99758':'#f6cc63'}"/><circle cx="135" cy="82" r="20" fill="#dfb07b"/><circle cx="141" cy="76" r="4" fill="#253e34"/><path d="M68 120v20m45-20v20" stroke="#77573b" stroke-width="8"/>`:null;
   const safe=String(label).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  return `<svg class="item-art" viewBox="0 0 200 160" role="img" aria-label="${safe}"><rect width="200" height="160" rx="16" fill="#29443c"/><circle cx="101" cy="71" r="58" fill="#39564a"/><path d="M0 140q60-36 110-11t90-7v38H0" fill="#334e41"/><ellipse cx="102" cy="138" rx="53" ry="9" fill="#172f2a"/>${drawings[id]||drawings.feed}</svg>`;
+  return `<svg class="item-art" viewBox="0 0 200 160" role="img" aria-label="${safe}"><rect width="200" height="160" rx="16" fill="#29443c"/><circle cx="101" cy="71" r="58" fill="#39564a"/><path d="M0 140q60-36 110-11t90-7v38H0" fill="#334e41"/><ellipse cx="102" cy="138" rx="53" ry="9" fill="#172f2a"/>${extra||drawings[id]||drawings.feed}</svg>`;
 }

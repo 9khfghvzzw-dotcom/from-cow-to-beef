@@ -484,7 +484,16 @@ export class Renderer {
       entities.push({
         y: b.y,
         draw: () => {
-          if (b.type === "wall") {
+          if (['tank','sharkTank','piranhaPool'].includes(b.type)) {
+            this.ellipse(b.x,b.y,72,40,'#b8dbe2');this.ellipse(b.x,b.y-3,65,33,b.type==='piranhaPool'?'#247d79':'#248eaf');
+            for(const f of (s.fish||[]).filter(f=>f.habitatId===b.id)){
+              const x=f.x,y=f.y,scale=(f.growth??100)<100?.55:1;
+              this.ellipse(x,y,12*scale,6*scale,f.kind==='shark'?'#8fb2c8':f.kind==='piranha'?'#ef7459':'#ffc447');
+              this.path([[x-10*scale,y],[x-20*scale,y-7*scale],[x-20*scale,y+7*scale]],'#f1ba59');
+              this.ellipse(x+6*scale,y-2*scale,1.5,1.5,'#132832');
+            }
+            this.label(b.x,b.y-48,b.type==='piranhaPool'?'PIRANHA POOL':b.type==='sharkTank'?'SHARK AQUARIUM':'FISH TANK');
+          } else if (b.type === "wall") {
             this.path(
               [
                 [b.x - 25, b.y - 18],

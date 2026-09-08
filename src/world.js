@@ -1,10 +1,17 @@
 import {tickTeamwork} from './teamwork.js';
+import {tickLivestock} from './livestock.js';
 import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
 // Generous corruption guards, far beyond normal play; these are not gameplay limits.
 const ANIMAL_SAFETY_GUARD = 5000;
 const BUILDING_SAFETY_GUARD = 3000;
 export const LOOT = {fur:{name:'Wolf fur',price:12},fang:{name:'Dire wolf fang',price:24},essence:{name:'Vampire essence',price:40}};
 export const BUILDINGS = {
+  sheepfold: {name:'Sheep shelter',price:90,size:65,population:0,description:'Shelters sheep; food and water recover nearby.'},
+  coop: {name:'Chicken coop',price:65,size:50,population:0,description:'A home for chickens; food and water recover nearby.'},
+  kennel: {name:'Dog kennel',price:60,size:45,population:0,description:'A home for your farm dogs. Two adults can have puppies.'},
+  tank: {name:'Goldfish tank',price:100,size:65,population:0,description:'Buy goldfish here. Two adults reproduce every 150 seconds.'},
+  sharkTank: {name:'Shark aquarium',price:350,size:85,population:0,description:'A fantasy aquarium for breeding and selling sharks.'},
+  piranhaPool: {name:'Piranha defense pool',price:200,size:70,population:0,description:'Adult piranhas deal 4 damage per second to enemies inside the pool.'},
   house: { name: "Cottage", price: 75, size: 65, population: 3 },
   barn: { name: "Barn", price: 110, size: 75, population: 1 },
   wall: { name: "Stone wall", price: 12, size: 28, population: 0 },
@@ -122,8 +129,8 @@ export class World {
       weapon: "shortsword",
       weapons: ["staff", "shortsword"],
       lastAttack: -10,
-      seeds: { clover: 2, carrot: 1, wheat: 1 },
-      produce: { clover: 0, carrot: 0, wheat: 0 },
+      seeds: Object.fromEntries(Object.keys(CROPS).map(id=>[id,({clover:2,carrot:1,wheat:1})[id]||0])),
+      produce: Object.fromEntries(Object.keys(CROPS).map(id=>[id,0])),
       eggs: 0, goldenEggs: 0, milk: 0, livestockSales: 0,
       farmUpgrades: [], landExpansions: 0, specialAmmo: null, specialAmmoOwned: [], spellScrolls: [], sanctuaryUntil: 0,
       sales: 0,
@@ -887,6 +894,7 @@ export class World {
         s.nextSheepBirth=s.time+150+this.random()*90;
       } else s.nextSheepBirth=s.time+30;
     }
+    tickLivestock(this,dt);
     tickTeamwork(this,dt,CROPS);
     tickEngineering(this,dt);
     for (const w of s.wolves) {
@@ -909,7 +917,7 @@ export class World {
         if (target) {
           const obstacle = s.buildings.find(
             (b) =>
-              b.health > 0 &&
+              b.health > 0 && !['tank','sharkTank','piranhaPool'].includes(b.type) &&
               distance(w, b) < BUILDINGS[b.type].size + 20 &&
               distance(b, target) < distance(w, target),
           );
@@ -1013,7 +1021,10 @@ export class World {
       d.projectiles=[];d.lootDrops??=[];d.loot??={};
       d.seeds ||= { clover: 2, carrot: 1, wheat: 1 };
       d.produce ||= { clover: 0, carrot: 0, wheat: 0 };
-      for(const id of Object.keys(CROPS)){d.seeds[id]??=0;d.produce[id]??=0;}
+      for(const id of Object.keys(CROPS))for(const bag of [d.seeds,d.produce]){
+        if(!Number.isFinite(bag[id])||bag[id]<0)bag[id]=0;
+        else bag[id]=Math.floor(bag[id]);
+      }
       d.eggs??=0;d.goldenEggs??=0;d.milk??=0;d.livestockSales??=0;d.farmUpgrades??=[];d.landExpansions??=0;d.specialAmmo??=null;d.specialAmmoOwned??=[];d.spellScrolls??=[];d.sanctuaryUntil??=0;
       for(const a of d.animals)if(a.kind==='chicken'){a.eggTimer??=45+this.random()*45;a.eggs??=0;a.goldenEggs??=0;a.golden??=false;}
       for(const a of d.animals)if(a.kind==='sheep')a.growth??=100;

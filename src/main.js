@@ -1,3 +1,4 @@
+import {shear,sellStock,STOCK} from './livestock.js';
 import { setupSettlement } from "./settlement-ui.js";
 import "./style.css";
 import { World, SPELLS, SPELL_SCROLLS, xpFor, CROPS, BUILDINGS, WEAPONS } from "./world.js";
@@ -185,6 +186,8 @@ $("selection").onclick = (e) => {
   const s = world.state,
     a = b.dataset.action;
   if (a === "feed" || a === "water") world.care(s.selected, a);
+  if(a==='shear')shear(world,s.selected);
+  if(a==='sell-stock')sellStock(world,s.selected);
   if (a === "collect-eggs") world.collectEggs(s.selected);
   if (a === "collect-milk") world.collectMilk(s.selected);
   if(a.startsWith('persuade:'))world.persuade(s.selected,a.split(':')[1]);
@@ -318,6 +321,8 @@ function ui() {
   if (animal) {
     html = `<p class="eyebrow">${animal.kind === "cow" ? (animal.growth >= 100 ? "ADULT COW" : "GROWING CALF") : animal.kind==='sheep'&&animal.growth<100?'GROWING LAMB':escape(animal.golden ? "GOLDEN CHICKEN" : animal.kind.toUpperCase())}</p><h2>${escape(animal.name || { dog: "Scout", sheep: "Woolly", chicken: "Pip" }[animal.kind])}</h2><p>${escape(animal.intent)}</p>${meter("Food", animal.hunger)}${meter("Water", animal.thirst)}${animal.kind === "cow" ? meter("Growth", animal.growth) + meter("Health", animal.health) : animal.kind==='sheep'?meter("Growth",animal.growth??100):""}<button data-action="feed">Feed · 1 clover</button><button data-action="water">Give water</button>`;
     if(animal.kind==='sheep'&&(animal.growth??100)>=100)html+=`<button data-action="market-sheep">Sell sheep · 45 gold</button><small>Healthy adult sheep reproduce naturally. There is no flock limit.</small>`;
+    if(animal.kind==='sheep')html+=`<p>Fleece: ${Math.floor(animal.woolGrowth||0)}%</p><button data-action="shear" ${(animal.woolGrowth||0)<100?'disabled':''}>Shear · 3 wool (9 gold each)</button>`;
+    if(['dog','chicken'].includes(animal.kind))html+=`<p>Growth: ${Math.floor(animal.growth??100)}%</p><button data-action="sell-stock" ${(animal.growth??100)<100?'disabled':''}>Sell · ${STOCK[animal.kind].sale} gold</button>`;
     if(animal.kind==='chicken')html+=`<p>${animal.eggs||0} eggs · ${animal.goldenEggs||0} golden eggs ready</p><button data-action="collect-eggs">Collect eggs</button>`;
     if(animal.kind==='cow'&&animal.growth>=100)html+=`<p>${Math.floor(animal.milk||0)} milk bags ready</p><button data-action="collect-milk">Collect milk</button>`;
     if (animal.kind === "cow")
@@ -365,7 +370,7 @@ function ui() {
     }<p>Buy seeds and sell your harvest at General Store.</p>`;
   const building = s.buildings.find((b) => b.id === s.selected);
   if (building)
-    html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home."}</p>`;
+    html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${BUILDINGS[building.type].description || (building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home.")}</p>`;
   const guardian=s.guards.find(g=>g.id===s.selected),technician=s.technicians.find(t=>t.id===s.selected);
   if(guardian)html=`<p class="eyebrow">ELECTRIC GUARDIAN</p><h2>${escape(guardian.name)}</h2><p>${escape(guardian.intent)}</p>${meter('Armor %',guardian.health/240*100)}<p>${Math.ceil(guardian.health)} / 240 armor · range 260</p><button data-action="repair-guardian">${s.repairJob===guardian.id?'Stop repairs':'Repair · 6 gold/min'}</button><small>Requires Insulated screwdriver. Stay nearby. Charges only for active work; stops at full armor or zero gold.</small>`;
   if(technician)html=`<p class="eyebrow">FIELD TECHNICIAN</p><h2>${escape(technician.name)}</h2><p>${escape(technician.intent)}</p><button data-action="maintenance">${technician.active?'Pause maintenance':'Enable maintenance · 12 gold/min'}</button><p>Repairs 240 armor/min. Travel and idle time are free. Stops when funds run out.</p>`;
