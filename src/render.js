@@ -1,3 +1,4 @@
+import {COMPANIONS} from './companions.js';
 import {drawFace} from './expressions.js';
 import { CROPS } from "./world.js";
 import {drawGuardian,drawTechnician} from './engineering-render.js';
@@ -234,7 +235,14 @@ export class Renderer {
     c.save();
     c.translate(n.x, n.y);
     this.ellipse(5, 6, 18, 7, "#18352638");
-    if (n.id === "child") c.scale(0.65, 0.65);
+    if(n.ageSeconds!==undefined&&n.ageSeconds<120){
+      this.ellipse(0,-8,15,21,'#bddfe0');this.ellipse(0,-25,9,9,'#e6ba95');
+      c.strokeStyle='#7eafb5';c.lineWidth=2;c.beginPath();c.moveTo(-11,-12);c.lineTo(10,1);c.stroke();
+      this.ellipse(-3,-26,1,1,'#344b48');this.ellipse(3,-26,1,1,'#344b48');
+      c.restore();this.label(n.x,n.y-43,n.name+' · Baby');return;
+    }
+    if(n.ageSeconds!==undefined&&n.ageSeconds<600){const size=n.ageSeconds<120?.4:.65;c.scale(size,size);}else if(n.id==='child'&&n.ageSeconds===undefined)c.scale(.65,.65);
+    const design=COMPANIONS[n.companionDesign];
     const robot =
       n.id === "vet" ||
       (n.id === "partner" && n.role === "Robot companion") ||
@@ -249,6 +257,7 @@ export class Renderer {
         : n.id === "farmer"
           ? "#b88a66"
           : "#729793";
+    if(design)c.fillStyle=design.coat;
     c.beginPath();
     c.roundRect(-14, -39, 28, 34, 8);
     c.fill();
@@ -270,7 +279,13 @@ export class Renderer {
       c.fillStyle = player ? "#556548" : "#a7925c";
       c.fillRect(-10, -66, 20, 9);
     }
-    drawFace(c,n,time,robot);
+    if(design){
+      c.fillStyle=design.hair;c.beginPath();c.arc(0,-51,13,Math.PI,Math.PI*2);c.fill();
+      c.fillRect(-13,-53,5,design.gender==='female'?23:12);c.fillRect(8,-53,5,design.gender==='female'?23:12);
+      this.ellipse(0,-48,9,11,'#dfb792');
+      if(design.kind==='robot'){c.fillStyle='#a5f4ef';c.fillRect(-4,-30,8,8);}
+    }
+    drawFace(c,n,time,robot&&!design);
     if(!robot){c.fillStyle='#eec096';c.fillRect(12,-36,7,20);}
     if(player){
       const held=n.held;c.save();c.translate(22,-20);

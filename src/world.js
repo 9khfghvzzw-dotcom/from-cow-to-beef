@@ -1,3 +1,5 @@
+import {tickCitizenLife,connectCitizens,isAdult} from './citizen-life.js';
+import {COMPANIONS} from './companions.js';
 import {tickTeamwork} from './teamwork.js';
 import {tickLivestock} from './livestock.js';
 import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
@@ -520,31 +522,29 @@ export class World {
     b.health = 100;
     return this.notify("Structure repaired.");
   }
-  invitePartner(kind) {
-    const s = this.state;
-    if (!["human", "robot"].includes(kind) || s.family.partner)
-      return this.notify("Your household already has a companion.");
-    const home = s.buildings.find((b) => b.type === "house" && b.health > 0);
-    if (!home)
-      return this.notify("Build a cottage before inviting a companion.");
-    const cost = kind === "robot" ? 100 : 0;
-    if (!this.canAfford(cost, 'Ari-7')) return;
-    s.coins -= cost;
-    s.family.partner = kind;
-    s.npcs.push({
-      id: "partner",
-      name: kind === "robot" ? "Ari-7" : "Lena",
-      role: kind === "robot" ? "Robot companion" : "Adult companion",
-      x: home.x + 50,
-      y: home.y + 30,
-      intent: "Getting to know the valley",
-      timer: 0,
-    });
-    return this.notify(
-      kind === "robot"
-        ? "Ari-7 joins your household."
-        : "Lena accepted your invitation to visit the settlement.",
-    );
+  invitePartner(design) {
+    const s=this.state,a=COMPANIONS[design];
+    if(!a)return this.notify('Choose a companion from the catalog.');
+    if(s.family.partner)return this.notify('Your household already has a companion. Use the appearance choices below.');
+    const home=s.buildings.find(b=>b.type==='house'&&b.health>0);
+    if(!home)return this.notify('Build a cottage before inviting a companion.');
+    if(!this.canAfford(a.price,a.name))return;
+    s.coins-=a.price;s.family.partner=a.kind;s.family.companionDesign=design;
+    s.npcs.push({id:'partner',name:a.name,role:a.kind==='robot'?'Robot companion':'Adult companion',companionDesign:design,x:home.x+50,y:home.y+30,intent:'Getting to know the valley',timer:0});
+    return this.notify(`${a.name} joins your household.`);
+  }
+  styleCompanion(design){
+    const s=this.state,a=COMPANIONS[design],n=s.npcs.find(n=>n.id==='partner');
+    if(!a||!n||a.kind!==s.family.partner)return this.notify('Choose a design for your current companion type.');
+    s.family.companionDesign=design;n.companionDesign=design;n.name=a.name;
+    return this.notify(`${a.name} appearance selected. Your bond and family progress are preserved.`);
+  }
+  recruitCitizen(design){
+    const s=this.state,a=COMPANIONS[design],home=s.buildings.find(b=>b.type==='house'&&b.health>0);
+    if(!a||!home)return this.notify('Build a cottage before inviting residents.');
+    const cost=a.price||75;if(!this.canAfford(cost,a.name+' settlement'))return;
+    s.coins-=cost;s.npcs.push({id:'resident-'+s.nextId++,name:a.name,role:a.kind==='robot'?'Robot resident':'Adult resident',companionDesign:design,x:home.x+45,y:home.y+30,intent:'Settling into the valley',timer:0});
+    return this.notify(`${a.name} joins the settlement and helps automatically.`);
   }
   bond() {
     const s = this.state,
@@ -567,9 +567,9 @@ export class World {
   startFamily(design='hybrid') {
     const s = this.state,
       f = s.family;
-    if (!f.partner || f.bond < 100 || this.level < 3)
+    if (!f.partner || (f.bond < 100 && (s.npcs.find(n=>n.id==='partner')?.connection||0)<80) || this.level < 3)
       return this.notify(
-        "Reach level 3 and bond 100. Both companions must be ready.",
+        "Reach level 3 and either bond 100 or connection 80. Both companions must be ready.",
       );
     if (f.child || f.arrival !== null)
       return this.notify("Your family chapter is already underway.");
@@ -691,6 +691,7 @@ export class World {
     dt = clamp(dt, 0, 0.25);
     const s = this.state;
     s.time += dt;
+    tickCitizenLife(this,dt);
     const animals=[...s.cows,...s.animals];
     const wellbeing=animals.length?animals.reduce((sum,a)=>sum+(a.hunger+a.thirst)/2,0)/animals.length:70;
     for(const n of [s.player,...s.npcs]){
@@ -701,10 +702,11 @@ export class World {
       n.happiness+=Math.max(-dt*.6,Math.min(dt*.35,(desired-n.happiness)*dt*.05));
     }
     const chatting=new Set();
-    for(const n of s.npcs.filter(n=>n.id!=='vet')){
+    for(const n of s.npcs.filter(n=>n.id!=='vet'&&isAdult(n))){
       if(chatting.has(n.id)||s.time-(n.lastSocial??0)<25||/Defend|Driving/.test(n.intent||''))continue;
-      const other=s.npcs.find(a=>a!==n&&a.id!=='vet'&&!chatting.has(a.id)&&s.time-(a.lastSocial??0)>=25&&distance(n,a)<100&&!/Defend|Driving/.test(a.intent||''));
+      const other=s.npcs.find(a=>a!==n&&a.id!=='vet'&&isAdult(a)&&!chatting.has(a.id)&&s.time-(a.lastSocial??0)>=25&&distance(n,a)<100&&!/Defend|Driving/.test(a.intent||''));
       if(!other)continue;
+      connectCitizens(this,n,other);
       for(const a of [n,other]){chatting.add(a.id);a.lastSocial=s.time;a.happiness=Math.min(100,(a.happiness??65)+4);a.expression='happy';a.expressionUntil=s.time+4;}
       s.effects.push({kind:'speech',text:`${other.name}, how is your day going?`,x:n.x,y:n.y-100,until:s.time+2});
       s.effects.push({kind:'speech',text:'Better with good company!',x:other.x,y:other.y-100,startsAt:s.time+2,until:s.time+4});
@@ -840,12 +842,12 @@ export class World {
           y: 400,
         };
         s.npcs.push({
-          id: "child",
+          id: "child",ageSeconds:0,lifeStage:"Baby",
           name: s.family.child === 'robot'?'Bolt':s.family.child === "hybrid" ? "Nova" : "Robin",
           role: s.family.child === 'robot'?'Robot child':s.family.child === "hybrid" ? "Human–robot child" : "Child",
           x: home.x + 30,
           y: home.y + 20,
-          intent: "Playing safely at home",
+          intent: "Resting safely at home",
           timer: 0,
         });
         this.award(100);

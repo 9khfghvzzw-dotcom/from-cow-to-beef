@@ -368,6 +368,8 @@ function ui() {
             )
             .join("")
     }<p>Buy seeds and sell your harvest at General Store.</p>`;
+  const citizen=s.npcs.find(n=>n.id===s.selected);
+  if(citizen)html+=`<p>${citizen.lifeStage||'Adult'} · Farming skill ${citizen.skills?.farming||0}/100 · Combat skill ${citizen.skills?.combat||0}/100</p>${citizen.ageSeconds!==undefined&&citizen.ageSeconds<600?'<small>Baby: first 2 minutes. Adult: after 10 minutes of active gameplay. Young children do not work or fight.</small>':''}`;
   const building = s.buildings.find((b) => b.id === s.selected);
   if (building)
     html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${BUILDINGS[building.type].description || (building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home.")}</p>`;
