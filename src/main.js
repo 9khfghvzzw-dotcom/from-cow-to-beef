@@ -1,3 +1,6 @@
+import {gameClock,ENEMIES} from './encounters.js';
+import {enterHome,leaveHome} from './homes.js';
+import {setupHomeUI} from './home-ui.js';
 import {shear,sellStock,STOCK} from './livestock.js';
 import { setupSettlement } from "./settlement-ui.js";
 import "./style.css";
@@ -61,6 +64,9 @@ setupSettlement(world, {
   },
 });
 setupInventory(world,save);
+const bestiary=document.createElement('details');bestiary.innerHTML='<summary>Bestiary · 100 enemy variants</summary><p>Ten creature families with ten combat traits each. New variants unlock through level 28; levels and waves continue without an ending.</p><div class="shop-grid">'+ENEMIES.map(e=>`<article><h3>${e.name}</h3><p>Level ${e.unlock} · HP ${Number(e.health.toFixed(1))} · speed ${Math.round(e.speed)}<br>${e.description}${e.ranged?' Ranged attacker.':''}</p></article>`).join('')+'</div>';document.getElementById('guide').append(bestiary);
+
+const homeUI=setupHomeUI(world,save);
 $("pause").onclick = () => setPause(!paused);
 $("resume").onclick = () => setPause(false);
 $("sound").onclick = async () => {
@@ -85,6 +91,7 @@ document
   .forEach((b) => (b.onclick = () => b.closest("dialog").close()));
 if (!restored) $("guide").showModal();
 window.addEventListener("keydown", (e) => {
+  if(world.state.player.insideHome){if(e.code==='Escape'){leaveHome(world);keys.clear();save();homeUI.refresh();}return;}
   if (
     document.querySelector("dialog[open]") ||
     /INPUT|TEXTAREA|BUTTON/.test(e.target.tagName)
@@ -196,6 +203,7 @@ $("selection").onclick = (e) => {
   if (a === "harvest") world.harvest(Number(s.selected.split("-")[1]));
   if (a.startsWith("plant:"))
     world.plant(Number(s.selected.split("-")[1]), a.split(":")[1]);
+  if(a==='enter-house'){if(enterHome(world,s.selected)){target=null;keys.clear();}}
   if (a === "repair") world.repair(s.selected);
   if (a === 'repair-guardian') world.startRepair(s.selected);
   if (a === 'maintenance') world.toggleTechnician(s.selected);
@@ -281,7 +289,7 @@ function ui() {
   $("herd").textContent = `${s.cows.length} cows · ${sheepCount} sheep · ${world.population} residents`;
   $("mana").textContent = Math.floor(s.mana);
   $("day").textContent =
-    `Day ${Math.floor(s.time / 240) + 1} · Threat ${world.threat} · ${s.wolves.filter(w=>!w.retreat).length} hostiles · wave in ${Math.ceil(s.nextWave - s.time)}s`;
+    `Day ${gameClock(s.time).day} · ${gameClock(s.time).label} ${gameClock(s.time).night?"☾ Night":"☀ Day"} · Threat ${world.threat} · ${s.wolves.filter(w=>!w.retreat).length} hostiles · wave in ${Math.ceil(s.nextWave - s.time)}s`;
   const actionLabel=s.activeTool==='weapon'?`⚔<small>${WEAPONS[s.weapon].name} · F</small>`:'⚒<small>USE TOOL · F</small>';
   if($('attack').innerHTML!==actionLabel)$('attack').innerHTML=actionLabel;
   $('attack').title=s.activeTool==='weapon'?`Equipped: ${WEAPONS[s.weapon].name}`:`Equipped: ${TOOL_NAMES[s.activeTool]}`;
@@ -373,9 +381,10 @@ function ui() {
   const building = s.buildings.find((b) => b.id === s.selected);
   if (building)
     html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${BUILDINGS[building.type].description || (building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home.")}</p>`;
+  if(building?.type==='house')html+='<button data-action="enter-house">Enter house</button><small>Walk near the door to enter and furnish the rooms.</small>';
   const guardian=s.guards.find(g=>g.id===s.selected),technician=s.technicians.find(t=>t.id===s.selected);
   if(guardian)html=`<p class="eyebrow">ELECTRIC GUARDIAN</p><h2>${escape(guardian.name)}</h2><p>${escape(guardian.intent)}</p>${meter('Armor %',guardian.health/240*100)}<p>${Math.ceil(guardian.health)} / 240 armor · range 260</p><button data-action="repair-guardian">${s.repairJob===guardian.id?'Stop repairs':'Repair · 6 gold/min'}</button><small>Requires Insulated screwdriver. Stay nearby. Charges only for active work; stops at full armor or zero gold.</small>`;
-  if(technician)html=`<p class="eyebrow">FIELD TECHNICIAN</p><h2>${escape(technician.name)}</h2><p>${escape(technician.intent)}</p><button data-action="maintenance">${technician.active?'Pause maintenance':'Enable maintenance · 12 gold/min'}</button><p>Repairs 240 armor/min. Travel and idle time are free. Stops when funds run out.</p>`;
+  if(technician)html=`<p class="eyebrow">FIELD TECHNICIAN</p><h2>${escape(technician.name)}</h2><p>${escape(technician.intent)}</p><button data-action="maintenance">${technician.active?'Pause maintenance':'Enable maintenance · 12 gold/min'}</button><p>Repairs 960 armor/min (full repair in 15 seconds). Travel and idle time are free. Stops when funds run out.</p>`;
   if(buildMode)html=`<p class="eyebrow">BUILD MODE</p><h2>${BUILDINGS[buildMode].name}</h2><p>Click open ground. Each piece costs ${BUILDINGS[buildMode].price} gold.${buildMode==='wall'?' Keep clicking to build a wall line.':''}</p><button data-action="cancel-build">Finish building</button>`;
   if (html !== selectionMarkup) {
     // Markup is reconciled below to preserve live action buttons.
@@ -395,10 +404,10 @@ function frame(now) {
         Number(keys.has("KeyS") || keys.has("ArrowDown")) -
         Number(keys.has("KeyW") || keys.has("ArrowUp"));
     const d = Math.hypot(x, y);
-    if (d) {
-      p.x = Math.max(220, Math.min(1450, p.x + (x / d) * 190 * dt));
-      p.y = Math.max(405, Math.min(world.southBoundary, p.y + (y / d) * 190 * dt));
-    } else if (target) {
+    if (!p.insideHome && d) {
+      p.x = Math.max(220, Math.min(1450, p.x + (x / d) * 190 * dt*(p.chilledUntil>world.state.time?.65:1)));
+      p.y = Math.max(405, Math.min(world.southBoundary, p.y + (y / d) * 190 * dt*(p.chilledUntil>world.state.time?.65:1)));
+    } else if (!p.insideHome && target) {
       world.moveTo(p, target, 190, dt);
       if (Math.hypot(p.x - target.x, p.y - target.y) < 4) target = null;
     }
@@ -412,7 +421,7 @@ function frame(now) {
   renderer.draw(world.state);
   uiTimer += dt;
   if (uiTimer > 0.15) {
-    ui();
+    ui();homeUI.refresh();
     uiTimer = 0;
   }
   requestAnimationFrame(frame);

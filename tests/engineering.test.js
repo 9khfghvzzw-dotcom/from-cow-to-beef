@@ -23,8 +23,11 @@ test('manual repair bills exactly six gold per active minute, halts on distance 
 test('technician charges no travel/idle time and prorates the final repair with limited funds',()=>{
  const w=setup(),s=w.state,g=s.guards[0];w.buyEngineering('technician');const t=s.technicians[0];g.health=0;t.x=g.x-300;t.y=g.y;s.coins=1;
  w.toggleTechnician(t.id);w.tick(.25);assert.equal(s.coins,1);assert.equal(g.health,0);
- t.x=g.x;t.y=g.y;advance(w,10);assert.equal(s.coins,0);assert.equal(g.health,20);assert.equal(t.active,false);
+ t.x=g.x;t.y=g.y;advance(w,10);assert.equal(s.coins,0);assert.equal(g.health,80);assert.equal(t.active,false);
  s.coins=100;g.health=240;w.toggleTechnician(t.id);advance(w,5);assert.equal(s.coins,100);
+});
+test('technician restores a disabled guardian in 15 working seconds for three gold',()=>{
+ const w=setup(),s=w.state,g=s.guards[0];w.buyEngineering('technician');const t=s.technicians[0];g.health=0;t.x=g.x;t.y=g.y;s.coins=100;w.toggleTechnician(t.id);advance(w,15);assert.equal(g.health,240);assert.equal(s.coins,97);
 });
 test('repair assignment is exclusive, stops on toggle, persists and migrates old saves',()=>{
  const w=setup(),s=w.state,g=s.guards[0];w.buyEngineering('technician');w.buyEngineering('technician');g.health=100;s.coins=100;

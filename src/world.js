@@ -1,3 +1,6 @@
+import {naturalCare} from './animal-needs.js';
+import {enemyFor,tickEnemyTraits} from './encounters.js';
+import {tickHomes} from './homes.js';
 import {tickCitizenLife,connectCitizens,isAdult} from './citizen-life.js';
 import {COMPANIONS} from './companions.js';
 import {tickTeamwork} from './teamwork.js';
@@ -441,6 +444,7 @@ export class World {
   damageEnemy(enemy,amount){
     if(enemy.dead||amount<=0)return;
     const s=this.state;
+    amount*=1-(enemy.armor||0);
     enemy.maxHealth??=enemy.type==='vampire'?10:enemy.type==='direwolf'?6:3;
     enemy.health=Math.max(0,(enemy.health??enemy.courage??enemy.maxHealth)-amount);
     enemy.courage=enemy.health;
@@ -675,6 +679,7 @@ export class World {
     s.effects.push({kind:'speech',text,x:n.x,y:n.y-100,until:s.time+4});this.notify(`${n.name}: ${text}`);
   }
   moveTo(actor, target, speed, dt) {
+    if(actor.chilledUntil>this.state.time)speed*=.65;
     const d = distance(actor, target);
     if (d < 2) return;
     const step = Math.min(d, speed * dt);
@@ -770,11 +775,8 @@ export class World {
       if (threat) {
         cow.intent = "Seeking shelter";
         this.moveTo(cow, { x: 800, y: 380 }, 65, dt);
-      } else if (cow.thirst < 40) {
-        cow.intent = "Finding water";
-        this.moveTo(cow, { x: 1140, y: 820 }, 32, dt);
-        if (distance(cow, { x: 1140, y: 820 }) < 80)
-          cow.thirst = Math.min(100, cow.thirst + dt * 5);
+      } else if(naturalCare(this,cow,dt)){
+        // Natural feeding and drinking own movement until the need is met.
       } else {
         cow.intent = cow.pregnancy !== null ? "Expecting a calf" : "Grazing";
         cow.timer -= dt;
@@ -862,6 +864,7 @@ export class World {
         a.eggTimer=(a.eggTimer??60)-dt;
         if(a.eggTimer<=0){const gold=a.golden||this.random()<.025;if(gold)a.goldenEggs=(a.goldenEggs||0)+1;else a.eggs=(a.eggs||0)+1;a.eggTimer=45+this.random()*45;a.intent=gold?'Laid a golden egg!':'An egg is ready';if(gold)this.notify(`${a.name||'A chicken'} laid a golden egg! Sell it or hatch a golden chick.`);}
       }
+      if(naturalCare(this,a,dt))continue;
       if (a.kind === "dog") {
         a.intent = danger ? "Guarding the herd" : "Following you";
         this.moveTo(
@@ -891,6 +894,8 @@ export class World {
       } else s.nextSheepBirth=s.time+30;
     }
     tickLivestock(this,dt);
+    tickEnemyTraits(this,dt);
+    tickHomes(this,dt);
     tickTeamwork(this,dt,CROPS);
     tickEngineering(this,dt);
     for (const w of s.wolves) {
@@ -927,8 +932,12 @@ export class World {
             this.moveTo(w, target, (w.speed||28) + Math.min(15, this.threat * 2), dt);
             w.intent = "Hunting";
           }
-          if (distance(w, target) < 35)
-            target.health = Math.max(15, target.health - (s.sanctuaryUntil>s.time?0:dt * (w.damage||2)));
+          if (distance(w,target)<(w.ranged?140:35)){
+            const dealt=s.sanctuaryUntil>s.time?0:dt*(w.damage||2);
+            target.health=Math.max(15,target.health-dealt);
+            if(w.trait==='leech'&&dealt)w.health=Math.min(w.maxHealth,w.health+dealt*.3);
+            if(w.ranged&&s.time>(w.lastRangedEffect||0)+1){w.lastRangedEffect=s.time;s.effects.push({kind:'electric',x:w.x,y:w.y-20,tx:target.x,ty:target.y,until:s.time+.3});}
+          }
         }
       }
     }
@@ -941,12 +950,11 @@ export class World {
       s.wave++;
       const count = Math.min(10, this.threat+1);
       for (let i = 0; i < count && s.wolves.length < 12; i++){
-        const type=this.level>=5&&this.threat>=6&&i%3===0?'vampire':this.level>=3&&this.threat>=4&&i%2===0?'direwolf':'wolf';
-        const spec=type==='vampire'?{courage:10,speed:42,damage:7}:type==='direwolf'?{courage:6,speed:34,damage:4}:{courage:3,speed:28,damage:2};
-        s.wolves.push({ id:this.id(),health:spec.courage,maxHealth:spec.courage,type, ...spec, x: 1460, y: 440 + i * 55, frozen: 0, retreat: 0 });
+        const spec=enemyFor(this.level,s.wave,i);
+        s.wolves.push({...spec,id:this.id(),x:1460,y:Math.min(this.southBoundary-50,Math.max(440,s.player.y-100+i*55)),frozen:0,retreat:0});
       }
       s.nextWave = s.time + Math.max(25, 60 - this.threat * 4);
-      this.notify(`Wave ${s.wave} · ${count} wolves approach your settlement.`);
+      this.notify(`Wave ${s.wave} · ${count} enemies approach your settlement.`);
     }
   }
   market(id) {

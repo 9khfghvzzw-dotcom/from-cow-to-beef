@@ -1,3 +1,4 @@
+import {gameClock,drawEnemy} from './encounters.js';
 import {COMPANIONS} from './companions.js';
 import {drawFace} from './expressions.js';
 import { CROPS } from "./world.js";
@@ -231,6 +232,7 @@ export class Renderer {
     }
   }
   person(n, time, player = false) {
+    if(n.insideHome)return;
     const c = this.ctx;
     c.save();
     c.translate(n.x, n.y);
@@ -486,11 +488,11 @@ export class Renderer {
         draw: () => {
           const hp=w.health??w.courage??3,max=w.maxHealth??(w.type==='vampire'?10:w.type==='direwolf'?6:3);
           c.fillStyle='#40252b';c.fillRect(w.x-25,w.y-51,50,6);c.fillStyle='#ef6c66';c.fillRect(w.x-25,w.y-51,50*Math.max(0,hp/max),6);
-          this.animal({ ...w, kind: "dog", enemyType:w.type||'wolf' }, s.time, false);
+          if(w.archetype)drawEnemy(this,w,s.time);else this.animal({ ...w, kind: "dog", enemyType:w.type||'wolf' }, s.time, false);
           this.label(
             w.x,
             w.y - 60,
-            w.frozen ? "FROZEN" : w.retreat ? "RETREATING" : w.type==='vampire'?"VAMPIRE":w.type==='direwolf'?"DIRE WOLF":"WOLF",
+            w.frozen ? "FROZEN" : w.retreat ? "RETREATING" : w.name || (w.type==='vampire'?"VAMPIRE":w.type==='direwolf'?"DIRE WOLF":"WOLF"),
             w.frozen ? "#9ddde2" : w.type==='vampire'?"#f29ace":w.type==='direwolf'?"#c1cad4":"#efb194",
           );
         },
@@ -588,7 +590,7 @@ export class Renderer {
         );
       c.globalAlpha = 1;
     }
-    const night = (Math.sin(s.time / 180 - Math.PI / 2) + 1) * 0.075;
+    const night = gameClock(s.time).darkness;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.fillStyle = `rgba(18,39,59,${night})`;
     c.fillRect(0, 0, r.width, r.height);

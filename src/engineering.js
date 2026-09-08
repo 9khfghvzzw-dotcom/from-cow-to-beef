@@ -3,7 +3,7 @@ export const ENGINEERING = {
   technician: { name: 'Field technician', price: 180 },
   screwdriver: { name: 'Insulated screwdriver', price: 35 },
 };
-export const REPAIR = { manual: { goldPerMinute: 6, hpPerMinute: 120 }, technician: { goldPerMinute: 12, hpPerMinute: 240 } };
+export const REPAIR = { manual: { goldPerMinute: 6, hpPerMinute: 120 }, technician: { goldPerMinute: 12, hpPerMinute: 960 } };
 const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
 const round = n => Math.round(n * 1e6) / 1e6;
 export function buyEngineering(world, type) {
@@ -66,7 +66,7 @@ export function tickEngineering(world,dt) {
     if(!g){t.target=null;t.intent='On standby · no charge';continue;}
     reserved.add(g.id);t.target=g.id;t.intent=`Repairing ${g.name}`;
     g.intent='Waiting for technician';
-    world.moveTo(t,g,75,dt);
+    world.moveTo(t,g,150,dt);
     if(distance(t,g)<65){g.intent='Receiving technician repairs';repair(world,g,dt,'technician');}
   }
   for(const g of s.guards) {

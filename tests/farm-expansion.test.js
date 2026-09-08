@@ -43,7 +43,7 @@ test('high player levels raise threat and spawn stronger vampire enemies',()=>{
   for(let i=0;i<3;i++)s.buildings.push({id:`h${i}`,type:'house',x:200+i*100,y:400,health:100});
   s.nextWave=0;w.tick(.1);
   const vampire=s.wolves.find(enemy=>enemy.type==='vampire');
-  assert.ok(vampire);assert.equal(vampire.courage,10);assert.equal(vampire.damage,7);assert.equal(vampire.speed,42);
+  assert.ok(vampire);assert.ok(vampire.courage>=8);assert.ok(vampire.damage>=6);assert.ok(vampire.speed>=30);assert.ok(vampire.archetype);
 });
 
 test('farmer autonomously tends non-cow farm animals',()=>{

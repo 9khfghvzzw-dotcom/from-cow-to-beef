@@ -3,7 +3,7 @@ import {isAdult,learn} from './citizen-life.js';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export function tickTeamwork(world,dt,crops){
  const s=world.state,claimed=new Set(),targets=new Map();
- const adults=s.npcs.filter(n=>isAdult(n)&&(n.id.startsWith('resident-')||n.id==='partner'||n.id==='child'||(n.id==='farmer'&&![...s.cows,...s.animals].some(a=>Math.min(a.hunger,a.thirst)<55))));
+ const adults=s.npcs.filter(n=>isAdult(n)&&!n.insideHome&&!n.goingHome&&(n.id.startsWith('resident-')||n.id==='partner'||n.id==='child'||(n.id==='farmer'&&![...s.cows,...s.animals].some(a=>Math.min(a.hunger,a.thirst)<55))));
  for(const n of adults){
   n.workCooldown=Math.max(0,(n.workCooldown||0)-dt);n.combatCooldown=Math.max(0,(n.combatCooldown||0)-dt);
   const enemies=(n.id==="farmer"?[]:s.wolves).filter(e=>!e.dead&&!e.retreat&&distance(n,e)<340).sort((a,b)=>(targets.get(a)||0)-(targets.get(b)||0)||distance(n,a)-distance(n,b));

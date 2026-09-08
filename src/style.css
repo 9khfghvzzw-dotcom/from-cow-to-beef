@@ -633,3 +633,10 @@ dialog p {
     font-size: 10px;
   }
 }
+
+#home-interior{position:fixed;inset:18px;z-index:40;overflow:auto;background:#233e35;color:#fff1cf;border:2px solid #b7a378;border-radius:20px;padding:24px;box-shadow:0 0 0 30px #10291be8}
+#home-interior[hidden]{display:none}#home-interior header{display:flex;justify-content:space-between;gap:20px;align-items:center}#home-interior h1{font-size:32px;margin:8px 0}#home-interior h2{font-size:23px}#home-interior h3{font-size:18px}#home-interior button{font-size:16px}
+.home-floor{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0;padding:12px;background:#725b43;border:8px solid #d4bd91;border-radius:8px}.home-room{padding:18px;background:repeating-linear-gradient(0deg,#b99263 0px,#b99263 26px,#a77d51 27px,#a77d51 29px);color:#172d29;min-height:240px;border:5px solid #f0dab0}.home-furniture{display:flex;flex-wrap:wrap;gap:14px}.home-furniture article{flex:1;min-width:145px;padding:12px;border-radius:10px;background:#fff4d2d9}.home-furniture article.empty{background:#e3cba599;border:2px dashed #79644c}.furniture-picture{font-size:58px;text-align:center}.home-occupant{display:block;color:#23475b;font-size:14px}.home-furniture button{background:#285346;color:#fff4d4}.home-furniture p{min-height:20px}#home-interior footer span{display:inline-block;padding:8px;background:#38564b;border-radius:8px;margin:3px}
+@media(max-width:600px){#home-interior{inset:6px;padding:12px}.home-floor{grid-template-columns:1fr;padding:4px;border-width:4px}.home-room{padding:10px}#home-interior header{align-items:flex-start}#home-interior h1{font-size:24px}}
+
+#home-interior header{height:auto;min-height:100px;flex-wrap:nowrap;position:relative;z-index:1;padding:12px}#home-interior header button{flex-shrink:0}#home-interior footer{position:static}
