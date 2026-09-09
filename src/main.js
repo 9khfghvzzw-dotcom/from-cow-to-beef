@@ -23,7 +23,7 @@ let paused = false,
   selectionMarkup = "",
   marketId = null,
   buildMode = null, pendingHome = null;
-const audio = new Audio("/audio/farm-rpg-with-soli.mp3");
+const audio = new Audio("/audio/farm-rpg-counterpoint.mp3");
 audio.loop = true;
 audio.volume = 0.25;
 let sound = false;

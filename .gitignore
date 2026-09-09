@@ -6,3 +6,4 @@ dist/
 *.log
 game-deploy.zip
 .qa/
+__pycache__/
