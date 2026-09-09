@@ -451,7 +451,7 @@ export class World {
     enemy.courage=enemy.health;
     s.effects.push({kind:'damage',amount,x:enemy.x,y:enemy.y-85,until:s.time+.8});
     if(enemy.health===0){
-      enemy.dead=true;enemy.retreat=15;
+      enemy.dead=true;enemy.retreat=15;s.enemiesDefeated=(s.enemiesDefeated||0)+1;
       const type=enemy.type==='vampire'?'essence':enemy.type==='direwolf'?'fang':'fur';
       s.lootDrops.push({id:this.id(),type,x:enemy.x,y:enemy.y});
       this.award(20);s.coins+=6;
@@ -617,6 +617,7 @@ export class World {
     const enemies=s.wolves.filter(w=>!w.dead&&!w.retreat&&distance(w,s.player)<=320).sort((a,b)=>distance(a,s.player)-distance(b,s.player));
     if(['fire','lightning'].includes(spell)&&!enemies.length)return this.notify('No enemy within spell range.');
     s.player.expression='focused';s.player.expressionUntil=s.time+1.5;
+    s.spellsCast=(s.spellsCast||0)+1;
     s.mana-=spec.mana;s.cooldowns[spell]=s.time+spec.cooldown;
     const source={x:s.player.x+22,y:s.player.y-30};
     const effect=(kind,t)=>s.effects.push({kind,x:t.x,y:t.y,start:s.time,until:s.time+1.5});

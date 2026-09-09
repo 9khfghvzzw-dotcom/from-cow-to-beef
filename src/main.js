@@ -1,3 +1,4 @@
+import {currentQuest,claimQuest} from './quests.js';
 import {gameClock,ENEMIES} from './encounters.js';
 import {enterHome,leaveHome,startSleep,wakeUp} from './homes.js';
 import {setupHomeUI} from './home-ui.js';
@@ -228,58 +229,7 @@ $("confirm-market").onclick = () => {
   selectionMarkup = "";
   save();
 };
-const quests = [
-  {
-    id: "harvest",
-    title: "Something worth growing",
-    text: "Harvest two golden clover plots. Your herd will thank you.",
-    value: (s) => s.harvests,
-    goal: 2,
-    reward: 50,
-  },
-  {
-    id: "care",
-    title: "A little kindness",
-    text: "Feed or water animals six times. Build a thriving home.",
-    value: (s) => s.care,
-    goal: 6,
-    reward: 80,
-  },
-  {
-    id: "adult",
-    title: "Room to grow",
-    text: "Nurture a cow until she reaches adulthood.",
-    value: (s) => (s.cows.some((c) => c.growth >= 100) ? 1 : 0),
-    goal: 1,
-    reward: 80,
-  },
-  {
-    id: "birth",
-    title: "A new beginning",
-    text: "Select a healthy adult cow and call the breeding robot. Welcome your first calf.",
-    value: (s) => s.births,
-    goal: 1,
-    reward: 120,
-  },
-  {
-    id: "herd",
-    title: "A flourishing herd",
-    text: "Grow your family to five cows. Every expected calf has a reserved place.",
-    value: (s) => s.cows.length,
-    goal: 5,
-    reward: 180,
-  },
-];
-$("claim").onclick = () => {
-  const q = quests.find((q) => !world.state.completed.includes(q.id));
-  if (q && q.value(world.state) >= q.goal) {
-    world.state.completed.push(q.id);
-    world.award(q.reward);
-    world.state.coins += 30;
-    world.notify(`Chapter complete · +${q.reward} XP and 30 coins`);
-    save();
-  }
-};
+$("claim").onclick = () => { if(claimQuest(world))save(); };
 function ui() {
   const s = world.state,
     level = world.level;
@@ -314,15 +264,11 @@ function ui() {
           ? `${remaining}s`
           : `${spec.mana} MANA`;
   }
-  const q = quests.find((q) => !s.completed.includes(q.id));
-  $("quest-title").textContent = q?.title || "This is your valley";
-  $("quest-description").textContent =
-    q?.text ||
-    "Keep growing, care for your herd and discover your own rhythm. All chapters complete.";
-  $("quest-progress").textContent = q
-    ? `${Math.min(q.goal, q.value(s))} / ${q.goal}`
-    : "A flourishing farm";
-  $("claim").hidden = !q || q.value(s) < q.goal;
+  const q = currentQuest(s);
+  $("quest-title").textContent = `Level ${q.level} · ${q.title}`;
+  $("quest-description").textContent = q.text;
+  $("quest-progress").textContent = `${q.progress} / ${q.goal} · +${q.reward} XP · +${q.gold} gold`;
+  $("claim").hidden = q.progress < q.goal;
   const animal = [...s.cows, ...s.animals].find((c) => c.id === s.selected),
     npc = s.npcs.find((n) => n.id === s.selected),
     crop = s.selected?.startsWith("crop-")
