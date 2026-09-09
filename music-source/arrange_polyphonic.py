@@ -11,6 +11,7 @@ spec=importlib.util.spec_from_file_location('source',ROOT/'yes_or_no_soli.py')
 source=importlib.util.module_from_spec(spec);spec.loader.exec_module(source)
 SR=44100; PULSE=60/92; STEP=PULSE/6; CHORUS_START=48*2*PULSE; CHORUS_LENGTH=16*4*PULSE
 EVENTS=[]
+MIX_SETTINGS={}
 def add(voice,t,d,p,v=.6):
  EVENTS.append(dict(voice=voice,t=round(t,6),d=round(d,6),p=p,v=v))
 def shift(t):return t+(CHORUS_LENGTH if t>=CHORUS_START-1e-6 else 0)
@@ -82,6 +83,7 @@ def render(out):
   else:
    noise=rng.uniform(-1,1,len(t));cut=6000 if voice in ('hat','ride') else 1200
    sig=np.concatenate(([0.],np.diff(noise)))*np.exp(-t*(35 if voice=='hat' else 15))*e['v']*.22
+  sig*=MIX_SETTINGS.get(voice,1)
   start=round(e['t']*SR);end=min(len(mix),start+len(sig));sig=sig[:end-start];pan=pans[voice]
   mix[start:end,0]+=sig*np.sqrt((1-pan)/2);mix[start:end,1]+=sig*np.sqrt((1+pan)/2)
  # Low-level stereo reflections preserve separation without washing out counterpoint.

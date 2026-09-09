@@ -23,8 +23,15 @@ let paused = false,
   selectionMarkup = "",
   marketId = null,
   buildMode = null, pendingHome = null;
-const audio = new Audio("/audio/farm-rpg-counterpoint.mp3");
-audio.loop = true;
+const soundtrack = ["/audio/farm-rpg-counterpoint-v2.mp3", "/audio/strings-continuation.mp3"];
+let trackIndex = 0;
+const audio = new Audio(soundtrack[trackIndex]);
+audio.loop = false;
+audio.addEventListener('ended', () => {
+  trackIndex = (trackIndex + 1) % soundtrack.length;
+  audio.src = soundtrack[trackIndex];
+  if (sound && !paused) audio.play().catch(() => world.notify('Tap Sound off, then Sound on to resume music.'));
+});
 audio.volume = 0.25;
 let sound = false;
 let restored = false;

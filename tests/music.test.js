@@ -14,3 +14,15 @@ test('complete source solo precedes swing chorus, with independently timed count
  const swing=a.events.filter(e=>e.voice==='ride'&&e.t>=a.sections[1].start);
  assert.ok(swing.some(e=>Math.abs(((e.t-a.sections[1].start)/(60/92))%1-2/3)<.001));
 });
+
+test('string continuation has 20 minutes of distinct editable sections and four string voices',()=>{
+ const a=JSON.parse(readFileSync(new URL('../music-source/strings-score.json',import.meta.url)));
+ assert.equal(a.duration,1200);assert.equal(a.sections.reduce((n,s)=>n+s.duration,0),1200);assert.equal(a.sections.length,10);
+ assert.equal(new Set(a.sections.map(s=>JSON.stringify(s.events))).size,10);
+ for(const s of a.sections){
+  assert.equal(new Set(s.events.map(e=>e.voice)).size,4);
+  for(const e of s.events){assert.ok(e.t>=0&&e.d>0);assert.ok(e.t+e.d<=120.00001);assert.ok(e.p>=29&&e.p<=88);}
+ }
+ const c=JSON.parse(readFileSync(new URL('../music-source/music-config.json',import.meta.url)));
+ assert.equal(c.insert_at_seconds,660);
+});
