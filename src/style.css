@@ -640,3 +640,5 @@ dialog p {
 @media(max-width:600px){#home-interior{inset:6px;padding:12px}.home-floor{grid-template-columns:1fr;padding:4px;border-width:4px}.home-room{padding:10px}#home-interior header{align-items:flex-start}#home-interior h1{font-size:24px}}
 
 #home-interior header{height:auto;min-height:100px;flex-wrap:nowrap;position:relative;z-index:1;padding:12px}#home-interior header button{flex-shrink:0}#home-interior footer{position:static}
+
+#sleep-status{position:fixed;z-index:60;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:14px;align-items:center;background:#19334cf5;color:#fff1ce;border:2px solid #bed8eb;border-radius:18px;padding:14px;box-shadow:0 8px 40px #0008;max-width:calc(100vw - 24px)}#sleep-status[hidden]{display:none}#sleep-status span{white-space:nowrap}#sleep-status button{white-space:nowrap}@media(max-width:600px){#sleep-status{width:calc(100vw - 24px);flex-wrap:wrap;justify-content:center;font-size:14px}#home-interior{padding-bottom:130px}}

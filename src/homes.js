@@ -6,6 +6,15 @@ export const FURNITURE={
  cot:{name:'Baby cot',room:'Children’s room',price:45,need:'care',icon:'🍼',action:'Caring for the baby'},
 };
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+export function startSleep(world,hours=8,bedId=null){
+ const s=world.state,p=s.player;if(![6,7,8,9].includes(hours)||p.homeTask)return false;
+ const outdoor=bedId?s.buildings.find(b=>b.id===bedId&&b.type==='outdoorBed'&&b.health>0):null;
+ const home=s.buildings.find(b=>b.id===p.insideHome&&b.health>0);
+ if(bedId?(!outdoor||dist(p,outdoor)>100):!home?.furniture?.includes('bed')){world.notify('Walk closer to a bed, or furnish your bedroom first. No companion is needed.');return false;}
+ if(home&&s.npcs.some(n=>n.insideHome===home.id&&n.homeTask?.type==='bed')){world.notify('The bed is occupied.');return false;}
+ p.homeTask={type:'bed',remaining:hours*25,total:hours*25,hours,bedId};p.needs??={energy:85,food:85,comfort:85,hygiene:85};world.notify(`Sleeping for ${hours} game hours. You can wake early.`);return true;
+}
+export function wakeUp(world){world.state.player.homeTask=null;world.notify('You woke up.');}
 export function furnish(world,id,type){
  const home=world.state.buildings.find(b=>b.id===id&&b.type==='house'),item=FURNITURE[type];
  if(!home||!item||home.health<=0)return false;
@@ -21,6 +30,7 @@ export function enterHome(world,id){
 }
 export function leaveHome(world){const s=world.state,h=s.buildings.find(b=>b.id===s.player.insideHome);s.player.insideHome=null;s.player.homeTask=null;if(h){s.player.x=h.x+45;s.player.y=h.y+55;}}
 export function useFurniture(world,type){
+ if(type==='bed')return startSleep(world,8);
  const s=world.state,p=s.player,h=s.buildings.find(b=>b.id===p.insideHome);
  if(!h?.furniture?.includes(type)||p.homeTask)return false;
  if(s.npcs.some(n=>n.insideHome===h.id&&n.homeTask?.type===type)){world.notify('This furniture is being used.');return false;}
@@ -33,14 +43,19 @@ export function tickHomes(world,dt){
  for(const n of [s.player,...s.npcs.filter(n=>n.id==='partner'||n.id.startsWith('resident-')||n.id==='child')]){
   n.goingHome=false;
   n.needs??={energy:85,food:85,comfort:85,hygiene:85};
-  for(const key of Object.keys(n.needs))n.needs[key]=Math.max(0,n.needs[key]-dt*.12);
+  for(const key of Object.keys(n.needs))if(!(key==='energy'&&n.homeTask?.type==='bed'))n.needs[key]=Math.max(0,n.needs[key]-dt*(key==='energy'?.25:.12));
   if(n.insideHome&&!homes.some(h=>h.id===n.insideHome)){n.insideHome=null;n.homeTask=null;}
-  if(n.homeTask&&n.insideHome){
+  if(n.homeTask&&(n.insideHome||n.homeTask.bedId)){
    const t=n.homeTask,item=FURNITURE[t.type];if(!item){n.homeTask=null;continue;}
-   n.intent=item.action;t.remaining-=dt;
+   n.intent=item.action;
+   if(t.type==='bed'){
+    if(t.bedId&&!s.buildings.some(b=>b.id===t.bedId&&b.health>0)){n.homeTask=null;continue;}
+    n.needs.energy=Math.min(100,n.needs.energy+Math.min(dt,t.remaining)*.5);
+   }
+   t.remaining-=dt;
    if(t.remaining<=0){
     if(item.need==='care'){const baby=s.npcs.find(a=>a.ageSeconds!==undefined&&a.ageSeconds<120);if(baby){baby.happiness=Math.min(100,(baby.happiness||65)+15);baby.lastCared=s.time;}}
-    else n.needs[item.need]=100;
+    else if(t.type!=='bed')n.needs[item.need]=100;
     n.happiness=Math.min(100,(n.happiness||65)+5);n.homeTask=null;
     if(n!==s.player){const h=homes.find(h=>h.id===n.insideHome);n.x=h.x+40;n.y=h.y+45;n.insideHome=null;n.intent='Returning to the farm';n.nextHomeVisit=s.time+20;}
    }continue;
@@ -53,6 +68,6 @@ export function tickHomes(world,dt){
   if(!type)continue;
   const h=homes.filter(h=>h.furniture?.includes(type)&&!reserved.has(h.id+':'+type)).sort((a,b)=>dist(n,a)-dist(n,b))[0];if(!h)continue;
   reserved.add(h.id+':'+type);n.goingHome=true;n.intent='Walking to the '+FURNITURE[type].room.toLowerCase();world.moveTo(n,{x:h.x,y:h.y+30},90,dt);
-  if(dist(n,h)<65){n.goingHome=false;n.insideHome=h.id;n.homeTask={type,remaining:8};}
+  if(dist(n,h)<65){n.goingHome=false;n.insideHome=h.id;n.homeTask={type,remaining:type==='bed'?200:8};}
  }
 }

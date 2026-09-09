@@ -8,6 +8,7 @@ import {tickLivestock} from './livestock.js';
 import { buyEngineering, startRepair, toggleTechnician, tickEngineering, migrateEngineering } from './engineering.js';
 export const LOOT = {fur:{name:'Wolf fur',price:12},fang:{name:'Dire wolf fang',price:24},essence:{name:'Vampire essence',price:40}};
 export const BUILDINGS = {
+  outdoorBed: {name:'Outdoor bed',price:40,size:25,population:0,description:'Place anywhere on open ground. Sleep alone for 6–9 game hours; no cottage or companion required.'},
   sheepfold: {name:'Sheep shelter',price:90,size:65,population:0,description:'Shelters sheep; food and water recover nearby.'},
   coop: {name:'Chicken coop',price:65,size:50,population:0,description:'A home for chickens; food and water recover nearby.'},
   kennel: {name:'Dog kennel',price:60,size:45,population:0,description:'A home for your farm dogs. Two adults can have puppies.'},

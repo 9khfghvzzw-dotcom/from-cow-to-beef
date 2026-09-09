@@ -1,5 +1,5 @@
 import {gameClock,ENEMIES} from './encounters.js';
-import {enterHome,leaveHome} from './homes.js';
+import {enterHome,leaveHome,startSleep,wakeUp} from './homes.js';
 import {setupHomeUI} from './home-ui.js';
 import {shear,sellStock,STOCK} from './livestock.js';
 import { setupSettlement } from "./settlement-ui.js";
@@ -21,7 +21,7 @@ let paused = false,
   uiTimer = 0,
   selectionMarkup = "",
   marketId = null,
-  buildMode = null;
+  buildMode = null, pendingHome = null;
 const audio = new Audio("/audio/farm-rpg-with-soli.mp3");
 audio.loop = true;
 audio.volume = 0.25;
@@ -56,7 +56,7 @@ function setPause(value) {
   else if (sound) audio.play().catch(() => {});
   save();
 }
-setupSettlement(world, {
+const settlement=setupSettlement(world, {
   save,
   onBuild: (type) => {
     buildMode = type;
@@ -67,6 +67,9 @@ setupInventory(world,save);
 const bestiary=document.createElement('details');bestiary.innerHTML='<summary>Bestiary · 100 enemy variants</summary><p>Ten creature families with ten combat traits each. New variants unlock through level 28; levels and waves continue without an ending.</p><div class="shop-grid">'+ENEMIES.map(e=>`<article><h3>${e.name}</h3><p>Level ${e.unlock} · HP ${Number(e.health.toFixed(1))} · speed ${Math.round(e.speed)}<br>${e.description}${e.ranged?' Ranged attacker.':''}</p></article>`).join('')+'</div>';document.getElementById('guide').append(bestiary);
 
 const homeUI=setupHomeUI(world,save);
+const homeButton=document.createElement('button');homeButton.id='home-go';homeButton.textContent='My home';$('shop-open').after(homeButton);
+homeButton.onclick=()=>{if(world.state.player.homeTask?.type==="bed"){world.notify("Wake up before walking home.");return;}keys.clear();const p=world.state.player,h=world.state.buildings.filter(b=>b.type==='house'&&b.health>0).sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y))[0];if(!h){settlement.open('buildings');world.notify('Build a cottage or place an outdoor bed. No companion is required.');return;}world.state.selected=h.id;if(enterHome(world,h.id)){target=null;keys.clear();homeUI.refresh();}else{pendingHome=h.id;target={x:h.x,y:h.y+35};world.notify('Walking to your cottage. You can enter and sleep alone.');}};
+
 $("pause").onclick = () => setPause(!paused);
 $("resume").onclick = () => setPause(false);
 $("sound").onclick = async () => {
@@ -91,6 +94,7 @@ document
   .forEach((b) => (b.onclick = () => b.closest("dialog").close()));
 if (!restored) $("guide").showModal();
 window.addEventListener("keydown", (e) => {
+  if(world.state.player.homeTask?.type==='bed'){if(e.code==='Escape'){wakeUp(world);save();homeUI.refresh();}return;}
   if(world.state.player.insideHome){if(e.code==='Escape'){leaveHome(world);keys.clear();save();homeUI.refresh();}return;}
   if (
     document.querySelector("dialog[open]") ||
@@ -143,7 +147,8 @@ for (const b of document.querySelectorAll("[data-dir]")) {
   b.onpointerup = b.onpointercancel = () => keys.delete(code);
 }
 canvas.onpointerdown = (e) => {
-  if (paused) return;
+  if (paused || world.state.player.homeTask?.type==="bed") return;
+  pendingHome=null;
   const r = canvas.getBoundingClientRect(),
     p = renderer.point(e.clientX - r.left, e.clientY - r.top),
     s = world.state;
@@ -184,12 +189,12 @@ $("spells").innerHTML = Object.entries({...SPELLS,...SPELL_SCROLLS})
   .join("");
 $("spells").onclick = (e) => {
   const b = e.target.closest("[data-spell]");
-  if (b && !paused && !document.querySelector("dialog[open]"))
+  if (b && !paused && world.state.player.homeTask?.type!=="bed" && !document.querySelector("dialog[open]"))
     world.cast(b.dataset.spell);
 };
 $("selection").onclick = (e) => {
   const b = e.target.closest("[data-action]");
-  if (!b || paused) return;
+  if (!b || paused || world.state.player.homeTask?.type==="bed") return;
   const s = world.state,
     a = b.dataset.action;
   if (a === "feed" || a === "water") world.care(s.selected, a);
@@ -203,6 +208,7 @@ $("selection").onclick = (e) => {
   if (a === "harvest") world.harvest(Number(s.selected.split("-")[1]));
   if (a.startsWith("plant:"))
     world.plant(Number(s.selected.split("-")[1]), a.split(":")[1]);
+  if(a.startsWith('sleep-outside:')){if(startSleep(world,Number(a.split(':')[1]),s.selected)){target=null;keys.clear();}}
   if(a==='enter-house'){if(enterHome(world,s.selected)){target=null;keys.clear();}}
   if (a === "repair") world.repair(s.selected);
   if (a === 'repair-guardian') world.startRepair(s.selected);
@@ -382,6 +388,7 @@ function ui() {
   if (building)
     html = `<p class="eyebrow">SETTLEMENT</p><h2>${BUILDINGS[building.type].name}</h2>${meter("Health", building.health)}<button data-action="repair">Repair · 5 coins</button><p>${BUILDINGS[building.type].description || (building.type === "wall" ? "Slows attackers until its health runs out." : "Your settlement grows with every home.")}</p>`;
   if(building?.type==='house')html+='<button data-action="enter-house">Enter house</button><small>Walk near the door to enter and furnish the rooms.</small>';
+  if(building?.type==='outdoorBed')html+='<p>Sleep alone · no house or companion needed.</p>'+[6,7,8,9].map(h=>`<button data-action="sleep-outside:${h}">Sleep ${h} hours</button>`).join('');
   const guardian=s.guards.find(g=>g.id===s.selected),technician=s.technicians.find(t=>t.id===s.selected);
   if(guardian)html=`<p class="eyebrow">ELECTRIC GUARDIAN</p><h2>${escape(guardian.name)}</h2><p>${escape(guardian.intent)}</p>${meter('Armor %',guardian.health/240*100)}<p>${Math.ceil(guardian.health)} / 240 armor · range 260</p><button data-action="repair-guardian">${s.repairJob===guardian.id?'Stop repairs':'Repair · 6 gold/min'}</button><small>Requires Insulated screwdriver. Stay nearby. Charges only for active work; stops at full armor or zero gold.</small>`;
   if(technician)html=`<p class="eyebrow">FIELD TECHNICIAN</p><h2>${escape(technician.name)}</h2><p>${escape(technician.intent)}</p><button data-action="maintenance">${technician.active?'Pause maintenance':'Enable maintenance · 12 gold/min'}</button><p>Repairs 960 armor/min (full repair in 15 seconds). Travel and idle time are free. Stops when funds run out.</p>`;
@@ -404,13 +411,14 @@ function frame(now) {
         Number(keys.has("KeyS") || keys.has("ArrowDown")) -
         Number(keys.has("KeyW") || keys.has("ArrowUp"));
     const d = Math.hypot(x, y);
-    if (!p.insideHome && d) {
+    if (!p.insideHome && p.homeTask?.type!=='bed' && d) {
       p.x = Math.max(220, Math.min(1450, p.x + (x / d) * 190 * dt*(p.chilledUntil>world.state.time?.65:1)));
       p.y = Math.max(405, Math.min(world.southBoundary, p.y + (y / d) * 190 * dt*(p.chilledUntil>world.state.time?.65:1)));
-    } else if (!p.insideHome && target) {
+    } else if (!p.insideHome && p.homeTask?.type!=='bed' && target) {
       world.moveTo(p, target, 190, dt);
       if (Math.hypot(p.x - target.x, p.y - target.y) < 4) target = null;
     }
+    if(pendingHome){const h=world.state.buildings.find(b=>b.id===pendingHome);if(!h)pendingHome=null;else if(Math.hypot(h.x-p.x,h.y-p.y)<100){enterHome(world,h.id);target=null;pendingHome=null;}}
     world.tick(dt);
     saveTimer += dt;
     if (saveTimer > 5) {
@@ -427,7 +435,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 $("attack").onclick = () => {
-  if (!paused) useEquipment(world);
+  if (!paused&&world.state.player.homeTask?.type!=='bed') useEquipment(world);
 };
 ui();
 requestAnimationFrame(frame);

@@ -232,7 +232,7 @@ export class Renderer {
     }
   }
   person(n, time, player = false) {
-    if(n.insideHome)return;
+    if(n.insideHome||n.homeTask?.bedId)return;
     const c = this.ctx;
     c.save();
     c.translate(n.x, n.y);
@@ -501,7 +501,11 @@ export class Renderer {
       entities.push({
         y: b.y,
         draw: () => {
-          if (['tank','sharkTank','piranhaPool'].includes(b.type)) {
+          if(b.type==='outdoorBed'){
+            c.fillStyle='#775b43';c.fillRect(b.x-23,b.y-18,46,30);c.fillRect(b.x-23,b.y+7,6,14);c.fillRect(b.x+17,b.y+7,6,14);
+            c.fillStyle='#789dc4';c.fillRect(b.x-21,b.y-24,42,32);c.fillStyle='#fff1d3';c.fillRect(b.x-18,b.y-21,36,9);
+            if(s.player.homeTask?.bedId===b.id)this.label(b.x,b.y-42,'Zzz · Sleeping');
+          } else if (['tank','sharkTank','piranhaPool'].includes(b.type)) {
             this.ellipse(b.x,b.y,72,40,'#b8dbe2');this.ellipse(b.x,b.y-3,65,33,b.type==='piranhaPool'?'#247d79':'#248eaf');
             for(const f of (s.fish||[]).filter(f=>f.habitatId===b.id)){
               const x=f.x,y=f.y,scale=(f.growth??100)<100?.55:1;
