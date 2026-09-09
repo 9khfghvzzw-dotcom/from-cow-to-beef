@@ -3,6 +3,15 @@
   "crossfade_seconds": 0.8,
   "loudness_lufs": -20,
   "source_audio": "public/audio/farm-rpg-fusion.mp3",
-  "output_audio": "public/audio/farm-rpg-counterpoint-v2.mp3",
-  "voice_gains": {"flute": 1, "synth": 1, "guitar": 1, "alto": 1, "tenor": 1, "bass": 1, "lead": 1}
+  "output_audio": "public/audio/main-20min.mp3",
+  "voice_gains": {
+    "flute": 1,
+    "synth": 1,
+    "guitar": 1,
+    "alto": 1,
+    "tenor": 1,
+    "bass": 1,
+    "lead": 1
+  },
+  "target_duration_seconds": 1200
 }

@@ -23,7 +23,7 @@ let paused = false,
   selectionMarkup = "",
   marketId = null,
   buildMode = null, pendingHome = null;
-const soundtrack = ["/audio/farm-rpg-counterpoint-v2.mp3", "/audio/strings-continuation.mp3"];
+const soundtrack = ["/audio/complete-40min.m4a"];
 let trackIndex = 0;
 const audio = new Audio(soundtrack[trackIndex]);
 audio.loop = false;

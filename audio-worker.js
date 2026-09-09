@@ -1,7 +1,7 @@
 // Audio byte ranges let browsers seek inside long tracks without restarting them.
 export default {
  async fetch(request,env){
-  if(!new URL(request.url).pathname.endsWith('.mp3')||!['GET','HEAD'].includes(request.method))return env.ASSETS.fetch(request);
+  if(!/\.(mp3|m4a)$/.test(new URL(request.url).pathname)||!['GET','HEAD'].includes(request.method))return env.ASSETS.fetch(request);
   const headers=new Headers(request.headers);headers.delete('range');headers.delete('if-range');headers.delete('if-none-match');
   const asset=await env.ASSETS.fetch(new Request(request.url,{method:'GET',headers}));
   if(!asset.ok)return asset;

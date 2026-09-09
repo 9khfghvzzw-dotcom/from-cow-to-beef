@@ -8,3 +8,8 @@ test('audio serves bounded and suffix ranges, HEAD, and rejects unsatisfiable ra
  r=await call(null,'HEAD');assert.equal(r.headers.get('content-length'),'5');assert.equal((await r.arrayBuffer()).byteLength,0);
  r=await call(null);assert.equal(r.headers.get('accept-ranges'),'bytes');assert.equal((await r.arrayBuffer()).byteLength,5);
 });
+
+test('M4A receives range delivery too',async()=>{
+ const r=await worker.fetch(new Request('https://test/audio/full.m4a',{headers:{Range:'bytes=0-1'}}),env);
+ assert.equal(r.status,206);assert.equal(r.headers.get('content-length'),'2');
+});
